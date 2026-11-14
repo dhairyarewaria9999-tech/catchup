@@ -1,5 +1,7 @@
 /**
  * Catchup - UI Rendering & Component Controller
+ * Modern view rendering, timestamp-accurate Pomodoro timer, accessible modal dialogs,
+ * micro-interactions, audio chimes, and adaptive plan visualization.
  * Supports both browser direct file execution (file://) and module environments.
  */
 
@@ -19,7 +21,7 @@
   }
 
   // ==========================================
-  // WEB AUDIO SOUND CHIME
+  // WEB AUDIO SOUND CHIME (Zero external dependencies)
   // ==========================================
   let audioCtx = null;
 
@@ -37,12 +39,13 @@
       const osc2 = audioCtx.createOscillator();
       const gainNode = audioCtx.createGain();
 
+      // Soft harmonic chime
       osc1.type = 'sine';
-      osc1.frequency.setValueAtTime(659.25, now);
-      osc1.frequency.exponentialRampToValueAtTime(987.77, now + 0.15);
+      osc1.frequency.setValueAtTime(659.25, now); // E5
+      osc1.frequency.exponentialRampToValueAtTime(987.77, now + 0.15); // B5
 
       osc2.type = 'triangle';
-      osc2.frequency.setValueAtTime(329.63, now);
+      osc2.frequency.setValueAtTime(329.63, now); // E4
 
       gainNode.gain.setValueAtTime(0, now);
       gainNode.gain.linearRampToValueAtTime(0.25, now + 0.05);
@@ -80,11 +83,12 @@
     toast.innerHTML = `
       <span class="toast-icon">${icon}</span>
       <span class="toast-message">${escapeHtml(message)}</span>
-      <button class="btn-icon" style="width:24px;height:24px;border:none;background:transparent;cursor:pointer;" aria-label="Close">✕</button>
+      <button class="toast-close-btn" aria-label="Close notification">✕</button>
     `;
 
-    toast.querySelector('button').addEventListener('click', () => {
+    toast.querySelector('.toast-close-btn').addEventListener('click', () => {
       toast.style.opacity = '0';
+      toast.style.transform = 'translateY(8px)';
       setTimeout(() => toast.remove(), 250);
     });
 
@@ -93,7 +97,7 @@
     setTimeout(() => {
       if (toast.parentElement) {
         toast.style.opacity = '0';
-        toast.style.transform = 'translateX(20px)';
+        toast.style.transform = 'translateY(8px)';
         setTimeout(() => toast.remove(), 250);
       }
     }, duration);
@@ -109,6 +113,93 @@
   }
 
   // ==========================================
+  // FOCUS TRAP FOR ACCESSIBLE MODALS
+  // ==========================================
+  let lastFocusedElement = null;
+
+  function trapFocus(modalEl) {
+    const focusableSelectors = 'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])';
+    const focusableElements = modalEl.querySelectorAll(focusableSelectors);
+    if (focusableElements.length === 0) return;
+
+    const firstElement = focusableElements[0];
+    const lastElement = focusableElements[focusableElements.length - 1];
+
+    modalEl._focusKeydownHandler = function(e) {
+      if (e.key === 'Tab') {
+        if (e.shiftKey) {
+          if (document.activeElement === firstElement) {
+            e.preventDefault();
+            lastElement.focus();
+          }
+        } else {
+          if (document.activeElement === lastElement) {
+            e.preventDefault();
+            firstElement.focus();
+          }
+        }
+      } else if (e.key === 'Escape') {
+        closeModal(modalEl);
+      }
+    };
+
+    modalEl.addEventListener('keydown', modalEl._focusKeydownHandler);
+    setTimeout(() => firstElement.focus(), 50);
+  }
+
+  function openModal(modalEl, triggerBtn = null) {
+    if (!modalEl) return;
+    lastFocusedElement = triggerBtn || document.activeElement;
+    modalEl.classList.add('open');
+    modalEl.setAttribute('aria-hidden', 'false');
+    trapFocus(modalEl);
+  }
+
+  function closeModal(modalEl) {
+    if (!modalEl) return;
+    modalEl.classList.remove('open');
+    modalEl.setAttribute('aria-hidden', 'true');
+    if (modalEl._focusKeydownHandler) {
+      modalEl.removeEventListener('keydown', modalEl._focusKeydownHandler);
+      modalEl._focusKeydownHandler = null;
+    }
+    if (lastFocusedElement && typeof lastFocusedElement.focus === 'function') {
+      lastFocusedElement.focus();
+      lastFocusedElement = null;
+    }
+  }
+
+  // Inline Validation Helpers
+  function setFieldError(fieldId, errorMsg) {
+    const errorEl = document.getElementById(`${fieldId}-error`);
+    const inputEl = document.getElementById(fieldId);
+    if (errorEl) {
+      errorEl.textContent = errorMsg || '';
+      errorEl.style.display = errorMsg ? 'block' : 'none';
+    }
+    if (inputEl) {
+      if (errorMsg) {
+        inputEl.classList.add('input-invalid');
+        inputEl.setAttribute('aria-invalid', 'true');
+      } else {
+        inputEl.classList.remove('input-invalid');
+        inputEl.removeAttribute('aria-invalid');
+      }
+    }
+  }
+
+  function clearFieldErrors(formEl) {
+    formEl.querySelectorAll('.form-error-msg').forEach(el => {
+      el.textContent = '';
+      el.style.display = 'none';
+    });
+    formEl.querySelectorAll('.input-invalid').forEach(el => {
+      el.classList.remove('input-invalid');
+      el.removeAttribute('aria-invalid');
+    });
+  }
+
+  // ==========================================
   // UI CONTROLLER CLASS
   // ==========================================
   class UIController {
@@ -117,9 +208,11 @@
       this.currentTab = 'today';
       this.todayStr = planner.formatDate(new Date());
 
-      this.timerMode = 'work';
-      this.timerDuration = 25 * 60;
-      this.timerSecondsLeft = 25 * 60;
+      // Timestamp-accurate Pomodoro Timer State (prevents drift)
+      this.timerMode = 'work'; // 'work' or 'break'
+      this.timerDurationMs = 25 * 60 * 1000;
+      this.timerRemainingMs = 25 * 60 * 1000;
+      this.timerEndTime = null;
       this.timerInterval = null;
       this.isTimerRunning = false;
 
@@ -151,40 +244,77 @@
     setupGlobalEvents() {
       const storage = getStorage();
 
+      // Tab Switching
       document.querySelectorAll('.tab-btn').forEach(btn => {
         btn.addEventListener('click', () => {
-          const tab = btn.dataset.tab;
-          this.switchTab(tab);
+          this.switchTab(btn.dataset.tab);
         });
       });
 
+      // Theme Toggle
       const themeBtn = document.getElementById('theme-toggle-btn');
       if (themeBtn) {
         themeBtn.addEventListener('click', () => this.toggleTheme());
       }
 
+      // Idempotent Demo Data
       document.querySelectorAll('.btn-load-demo').forEach(btn => {
         btn.addEventListener('click', () => {
-          if (confirm('Load sample study data? This will replace your current schedule with realistic demo data.')) {
+          if (confirm('Load sample study data? This will load a realistic 3-subject study schedule with exams in 5, 9, and 14 days.')) {
             storage.generateDemoData(this.todayStr);
             this.loadStateAndCache();
             this.checkWorkloadBanner();
-            this.renderActiveTab();
+            this.renderActiveTab(true);
             showToast('Sample data loaded! Exams scheduled in 5, 9, and 14 days.', 'success');
           }
         });
       });
 
-      const dailyHoursInput = document.getElementById('setting-daily-hours');
-      if (dailyHoursInput) {
-        dailyHoursInput.addEventListener('change', (e) => {
-          const settings = storage.loadSettings();
-          settings.dailyHours = parseFloat(e.target.value) || 3;
-          storage.saveSettings(settings);
-          this.triggerAutoReplan('Updated daily study hours to ' + settings.dailyHours + 'h');
+      // Reset All Data Button
+      const resetBtn = document.getElementById('btn-reset-data');
+      if (resetBtn) {
+        resetBtn.addEventListener('click', () => {
+          const resetModal = document.getElementById('reset-modal');
+          if (resetModal) {
+            openModal(resetModal, resetBtn);
+          }
         });
       }
 
+      const confirmResetBtn = document.getElementById('btn-confirm-reset');
+      if (confirmResetBtn) {
+        confirmResetBtn.addEventListener('click', () => {
+          storage.resetAllData();
+          storage.saveSubjects([]);
+          storage.saveSessions([]);
+          storage.saveStudyLogs({});
+          const resetModal = document.getElementById('reset-modal');
+          if (resetModal) closeModal(resetModal);
+          this.loadStateAndCache();
+          this.checkWorkloadBanner();
+          this.renderActiveTab();
+          showToast('All study data has been reset.', 'info');
+        });
+      }
+
+      // Settings: Daily Hours input validation & debounced auto-replan
+      const dailyHoursInput = document.getElementById('setting-daily-hours');
+      if (dailyHoursInput) {
+        dailyHoursInput.addEventListener('change', (e) => {
+          const val = parseFloat(e.target.value);
+          if (isNaN(val) || val < 0.5 || val > 16) {
+            setFieldError('setting-daily-hours', 'Daily study hours must be between 0.5 and 16 hours.');
+            return;
+          }
+          setFieldError('setting-daily-hours', '');
+          const settings = storage.loadSettings();
+          settings.dailyHours = val;
+          storage.saveSettings(settings);
+          this.triggerAutoReplan(`Updated daily study budget to ${val}h`);
+        });
+      }
+
+      // Settings: Study days toggle buttons
       document.querySelectorAll('.day-checkbox-label').forEach(label => {
         label.addEventListener('click', (e) => {
           e.preventDefault();
@@ -194,7 +324,7 @@
 
           if (days.includes(dayVal)) {
             if (days.length <= 1) {
-              showToast('You must have at least one study day per week!', 'warning');
+              showToast('You must maintain at least one active study day per week!', 'warning');
               return;
             }
             days = days.filter(d => d !== dayVal);
@@ -210,6 +340,7 @@
         });
       });
 
+      // Today: Catchup Action Buttons
       const missedTodayBtn = document.getElementById('btn-missed-today');
       if (missedTodayBtn) {
         missedTodayBtn.addEventListener('click', () => this.handleMissedToday());
@@ -217,13 +348,23 @@
 
       const partialHoursBtn = document.getElementById('btn-partial-hours');
       if (partialHoursBtn) {
-        partialHoursBtn.addEventListener('click', () => this.openPartialHoursModal());
+        partialHoursBtn.addEventListener('click', (e) => this.openPartialHoursModal(e.currentTarget));
       }
 
+      // Generic Modal Dismissals
       document.querySelectorAll('.modal-close-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
           const modal = e.target.closest('.modal-overlay');
-          if (modal) modal.classList.remove('open');
+          if (modal) closeModal(modal);
+        });
+      });
+
+      // Background click dismissal for modals
+      document.querySelectorAll('.modal-overlay').forEach(modal => {
+        modal.addEventListener('click', (e) => {
+          if (e.target === modal) {
+            closeModal(modal);
+          }
         });
       });
     }
@@ -231,7 +372,9 @@
     switchTab(tabId) {
       this.currentTab = tabId;
       document.querySelectorAll('.tab-btn').forEach(btn => {
-        btn.classList.toggle('active', btn.dataset.tab === tabId);
+        const isCurrent = btn.dataset.tab === tabId;
+        btn.classList.toggle('active', isCurrent);
+        btn.setAttribute('aria-selected', isCurrent ? 'true' : 'false');
       });
       document.querySelectorAll('.tab-content').forEach(panel => {
         panel.classList.toggle('active', panel.id === `tab-${tabId}`);
@@ -300,7 +443,7 @@
       this.renderActiveTab(true);
     }
 
-    openPartialHoursModal() {
+    openPartialHoursModal(triggerBtn) {
       const modal = document.getElementById('partial-hours-modal');
       if (!modal) return;
 
@@ -309,21 +452,26 @@
       const input = document.getElementById('partial-hours-input');
       const settings = storage.loadSettings();
       input.value = Math.max(0.5, Math.round((settings.dailyHours / 2) * 2) / 2);
+      setFieldError('partial-hours-input', '');
 
-      modal.classList.add('open');
+      openModal(modal, triggerBtn);
 
       const confirmBtn = document.getElementById('btn-confirm-partial');
-      const newConfirmBtn = confirmBtn.cloneNode(true);
-      confirmBtn.parentNode.replaceChild(newConfirmBtn, confirmBtn);
+      confirmBtn.onclick = () => {
+        const hoursDone = parseFloat(input.value);
+        if (isNaN(hoursDone) || hoursDone < 0 || hoursDone > 24) {
+          setFieldError('partial-hours-input', 'Please enter a valid study duration between 0 and 24 hours.');
+          return;
+        }
 
-      newConfirmBtn.addEventListener('click', () => {
-        const hoursDone = parseFloat(input.value) || 0;
-        modal.classList.remove('open');
+        closeModal(modal);
 
         const subjects = storage.loadSubjects() || [];
         const existingSessions = storage.loadSessions() || [];
 
-        storage.recordStudyLog(this.todayStr, hoursDone);
+        if (hoursDone > 0) {
+          storage.recordStudyLog(this.todayStr, hoursDone);
+        }
 
         const result = planner.replan({
           fromDate: this.todayStr,
@@ -339,7 +487,7 @@
         showToast(result.diffSummary, 'success');
         this.checkWorkloadBanner(result.warning);
         this.renderActiveTab(true);
-      });
+      };
     }
 
     checkWorkloadBanner(customWarning) {
@@ -360,7 +508,7 @@
         banner.style.display = 'flex';
         const textEl = banner.querySelector('.warning-text');
         const subjectDetail = warning.subjectWarnings.length > 0
-          ? `(${warning.subjectWarnings.map(w => `${w.subjectName}: +${w.extraPerDayNeeded}h/day`).join(', ')})`
+          ? `(${warning.subjectWarnings.map(w => `${escapeHtml(w.subjectName)}: +${w.extraPerDayNeeded}h/day`).join(', ')})`
           : '';
 
         textEl.innerHTML = `
@@ -372,6 +520,9 @@
       }
     }
 
+    // ==========================================
+    // SCREEN 1: SETUP
+    // ==========================================
     renderSetupScreen() {
       const container = document.getElementById('subjects-list-container');
       if (!container) return;
@@ -419,12 +570,12 @@
         const topicsHtml = (subject.topics || []).map(t => `
           <div class="topic-row">
             <div class="topic-info">
-              <span class="difficulty-pill">D${t.difficulty}</span>
-              <span style="font-weight: 500;">${escapeHtml(t.name)}</span>
+              <span class="difficulty-pill" title="Difficulty ${t.difficulty}/5">D${t.difficulty}</span>
+              <span style="font-weight: 600;">${escapeHtml(t.name)}</span>
             </div>
             <div class="topic-hours-tag">
-              ${t.hoursDone || 0} / ${t.estimatedHours}h
-              <button class="btn-icon btn-sm delete-topic-btn" data-sub-id="${subject.id}" data-topic-id="${t.id}" title="Delete Topic" style="margin-left: 6px; width:22px; height:22px; border:none; background:transparent;">✕</button>
+              <span>${t.hoursDone || 0} / ${t.estimatedHours}h</span>
+              <button class="btn-icon btn-sm delete-topic-btn" data-sub-id="${subject.id}" data-topic-id="${t.id}" title="Delete Topic" aria-label="Delete topic ${escapeHtml(t.name)}" style="margin-left: 6px; width:26px; height:26px; border:none; background:transparent;">✕</button>
             </div>
           </div>
         `).join('');
@@ -433,9 +584,9 @@
           <div class="subject-header-row">
             <div class="subject-title-area">
               <span class="color-dot" style="background-color: ${subject.color}"></span>
-              <h4 style="font-size: 1.1rem; margin:0;">${escapeHtml(subject.name)}</h4>
+              <h4 style="font-size: 1.15rem; margin:0;">${escapeHtml(subject.name)}</h4>
               <span class="subject-exam-badge ${isUrgent ? 'urgent' : ''}">
-                ${daysLeft < 0 ? 'Exam Passed' : daysLeft === 0 ? 'Exam Today!' : `${daysLeft} days to exam (${subject.examDate})`}
+                ${daysLeft < 0 ? 'Exam Passed' : daysLeft === 0 ? 'Exam Today!' : `${daysLeft}d to exam (${subject.examDate})`}
               </span>
             </div>
             <div style="display:flex; gap:0.5rem;">
@@ -445,17 +596,17 @@
           </div>
           <div class="topics-table-area">
             <div class="topics-list">
-              ${topicsHtml || '<div style="color:var(--text-muted);font-size:0.85rem;">No topics yet. Click "+ Topic" above.</div>'}
+              ${topicsHtml || '<div style="color:var(--text-muted);font-size:0.85rem;padding:0.5rem 0;">No topics yet. Click "+ Topic" above to add curriculum items.</div>'}
             </div>
           </div>
         `;
 
-        card.querySelector('.add-topic-btn').addEventListener('click', () => {
-          this.openAddTopicModal(subject.id);
+        card.querySelector('.add-topic-btn').addEventListener('click', (e) => {
+          this.openAddTopicModal(subject.id, e.currentTarget);
         });
 
         card.querySelector('.delete-subject-btn').addEventListener('click', () => {
-          if (confirm(`Delete subject "${subject.name}" and its topics?`)) {
+          if (confirm(`Delete subject "${subject.name}" and all its topics?`)) {
             const updated = (storage.loadSubjects() || []).filter(s => s.id !== subject.id);
             storage.saveSubjects(updated);
             this.loadStateAndCache();
@@ -470,7 +621,7 @@
             const allSubs = storage.loadSubjects() || [];
             const sObj = allSubs.find(s => s.id === subId);
             if (sObj) {
-              sObj.topics = sObj.topics.filter(t => t.id !== topicId);
+              sObj.topics = (sObj.topics || []).filter(t => t.id !== topicId);
               storage.saveSubjects(allSubs);
               this.loadStateAndCache();
               this.triggerAutoReplan('Removed topic');
@@ -483,32 +634,56 @@
 
       const addSubjectBtn = document.getElementById('btn-add-subject');
       if (addSubjectBtn) {
-        addSubjectBtn.onclick = () => this.openAddSubjectModal();
+        addSubjectBtn.onclick = (e) => this.openAddSubjectModal(e.currentTarget);
       }
     }
 
-    openAddSubjectModal() {
+    openAddSubjectModal(triggerBtn) {
       const modal = document.getElementById('subject-modal');
       if (!modal) return;
 
       const planner = getPlanner();
       const storage = getStorage();
 
-      modal.classList.add('open');
       const form = document.getElementById('subject-form');
       form.reset();
+      clearFieldErrors(form);
 
       const dateInput = document.getElementById('subject-exam-date');
       dateInput.value = planner.addDays(this.todayStr, 7);
       dateInput.min = this.todayStr;
 
+      openModal(modal, triggerBtn);
+
       form.onsubmit = (e) => {
         e.preventDefault();
-        const name = document.getElementById('subject-name').value.trim();
+        const nameInput = document.getElementById('subject-name');
+        const name = nameInput.value.trim();
         const color = document.getElementById('subject-color').value;
         const examDate = dateInput.value;
 
-        if (!name || !examDate) return;
+        let hasError = false;
+        if (!name) {
+          setFieldError('subject-name', 'Subject name is required.');
+          hasError = true;
+        } else if (name.length < 2) {
+          setFieldError('subject-name', 'Subject name must be at least 2 characters.');
+          hasError = true;
+        } else {
+          setFieldError('subject-name', '');
+        }
+
+        if (!examDate) {
+          setFieldError('subject-exam-date', 'Exam date is required.');
+          hasError = true;
+        } else if (examDate < this.todayStr) {
+          setFieldError('subject-exam-date', 'Exam date cannot be in the past.');
+          hasError = true;
+        } else {
+          setFieldError('subject-exam-date', '');
+        }
+
+        if (hasError) return;
 
         const subjects = storage.loadSubjects() || [];
         const newSubject = {
@@ -521,30 +696,46 @@
 
         subjects.push(newSubject);
         storage.saveSubjects(subjects);
-        modal.classList.remove('open');
+        closeModal(modal);
         this.loadStateAndCache();
         this.renderSetupScreen();
-        showToast(`Added ${name}! Now add topics to start planning.`, 'success');
+        showToast(`Added ${name}! Click "+ Topic" to add curriculum items.`, 'success');
       };
     }
 
-    openAddTopicModal(subjectId) {
+    openAddTopicModal(subjectId, triggerBtn) {
       const modal = document.getElementById('topic-modal');
       if (!modal) return;
 
       const storage = getStorage();
-
-      modal.classList.add('open');
       const form = document.getElementById('topic-form');
       form.reset();
+      clearFieldErrors(form);
+
+      openModal(modal, triggerBtn);
 
       form.onsubmit = (e) => {
         e.preventDefault();
         const name = document.getElementById('topic-name').value.trim();
         const difficulty = parseInt(document.getElementById('topic-difficulty').value, 10) || 3;
-        const hours = parseFloat(document.getElementById('topic-hours').value) || 2;
+        const hours = parseFloat(document.getElementById('topic-hours').value);
 
-        if (!name) return;
+        let hasError = false;
+        if (!name) {
+          setFieldError('topic-name', 'Topic name is required.');
+          hasError = true;
+        } else {
+          setFieldError('topic-name', '');
+        }
+
+        if (isNaN(hours) || hours < 0.5 || hours > 40) {
+          setFieldError('topic-hours', 'Estimated hours must be between 0.5 and 40 hours.');
+          hasError = true;
+        } else {
+          setFieldError('topic-hours', '');
+        }
+
+        if (hasError) return;
 
         const subjects = storage.loadSubjects() || [];
         const target = subjects.find(s => s.id === subjectId);
@@ -558,16 +749,23 @@
             hoursDone: 0
           });
           storage.saveSubjects(subjects);
-          modal.classList.remove('open');
+          closeModal(modal);
           this.loadStateAndCache();
           this.triggerAutoReplan(`Added topic "${name}" to ${target.name}`);
         }
       };
     }
 
+    // ==========================================
+    // SCREEN 2: TODAY (Enhanced with Hero Card & Daily Progress)
+    // ==========================================
     renderTodayScreen() {
       const listContainer = document.getElementById('today-sessions-container');
       const dateDisplay = document.getElementById('today-date-display');
+      const heroContainer = document.getElementById('today-hero-container');
+      const dailyProgressBar = document.getElementById('today-daily-progress-bar');
+      const dailyProgressLabel = document.getElementById('today-daily-progress-label');
+
       if (!listContainer) return;
 
       const planner = getPlanner();
@@ -585,12 +783,64 @@
 
       const todaySessions = sessions.filter(s => s.date === this.todayStr);
 
+      // Calculate Daily Hours Done vs Planned
+      const totalPlannedToday = todaySessions.reduce((acc, s) => acc + (s.plannedHours || 0), 0);
+      const totalDoneToday = todaySessions.reduce((acc, s) => acc + (s.doneHours || (s.status === 'done' ? s.plannedHours : 0)), 0);
+      const dailyPercent = totalPlannedToday > 0 ? Math.min(100, Math.round((totalDoneToday / totalPlannedToday) * 100)) : 100;
+
+      if (dailyProgressBar && dailyProgressLabel) {
+        dailyProgressBar.style.width = `${dailyPercent}%`;
+        dailyProgressLabel.textContent = `${Math.round(totalDoneToday * 10) / 10} / ${Math.round(totalPlannedToday * 10) / 10}h completed (${dailyPercent}%)`;
+      }
+
+      // Hero Card: Highlight the next uncompleted focus session
+      const nextPendingSession = todaySessions.find(s => s.status !== 'done');
+      if (heroContainer) {
+        if (nextPendingSession) {
+          const sub = subjectMap[nextPendingSession.subjectId] || { name: 'General', color: '#6366f1' };
+          heroContainer.innerHTML = `
+            <div class="today-hero-card" style="--hero-color: ${sub.color}">
+              <div class="hero-top-row">
+                <span class="hero-pill" style="color: ${sub.color}; background: rgba(99, 102, 241, 0.12);">CURRENT FOCUS</span>
+                <span style="font-size: 0.85rem; color: var(--text-secondary);">⏱️ ${nextPendingSession.plannedHours}h allocated</span>
+              </div>
+              <h3 class="hero-title">${escapeHtml(nextPendingSession.topicName)}</h3>
+              <p class="hero-sub">${escapeHtml(sub.name)} ${nextPendingSession.isRevision ? '• Final Exam Review' : ''}</p>
+              <div class="hero-actions">
+                <button class="btn btn-primary btn-sm hero-start-btn">🎯 Start Focus Block in Timer</button>
+              </div>
+            </div>
+          `;
+          heroContainer.querySelector('.hero-start-btn').addEventListener('click', () => {
+            const startBtn = document.getElementById('pomo-start-btn');
+            if (startBtn) {
+              if (!this.isTimerRunning) startBtn.click();
+              showToast(`Focus block started for: ${nextPendingSession.topicName}`, 'info');
+            }
+          });
+          heroContainer.style.display = 'block';
+        } else if (todaySessions.length > 0) {
+          heroContainer.innerHTML = `
+            <div class="today-hero-card hero-completed">
+              <div class="hero-top-row">
+                <span class="hero-pill" style="color: var(--accent-emerald); background: rgba(16, 185, 129, 0.15);">ALL DONE FOR TODAY! 🎉</span>
+              </div>
+              <h3 class="hero-title">Fantastic focus! You hit 100% of today's study goal.</h3>
+              <p class="hero-sub">Take a relaxing break, or check out upcoming sessions in the Plan tab.</p>
+            </div>
+          `;
+          heroContainer.style.display = 'block';
+        } else {
+          heroContainer.style.display = 'none';
+        }
+      }
+
       if (todaySessions.length === 0) {
         listContainer.innerHTML = `
           <div class="empty-state">
             <div class="empty-state-icon">🎉</div>
             <h3>You're all caught up for today!</h3>
-            <p>No study sessions scheduled for today. Take a well-deserved break or inspect upcoming days in the Plan tab.</p>
+            <p>No study sessions scheduled for today. Take a well-deserved rest day or check upcoming days in the Plan tab.</p>
           </div>
         `;
         return;
@@ -609,15 +859,15 @@
 
         card.innerHTML = `
           <div class="session-checkbox-wrapper">
-            <div class="custom-checkbox ${isDone ? 'checked' : ''}" role="checkbox" aria-checked="${isDone}" tabindex="0" title="Toggle completion">
-              ${isDone ? '✓' : ''}
-            </div>
+            <button class="custom-checkbox ${isDone ? 'checked' : ''}" role="checkbox" aria-checked="${isDone}" aria-label="Mark ${escapeHtml(session.topicName)} as ${isDone ? 'incomplete' : 'done'}">
+              <svg class="check-svg" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>
+            </button>
           </div>
           <div class="session-main-details">
             <span class="session-subject-tag">${escapeHtml(subject.name)}</span>
             <div class="session-topic-title">${escapeHtml(session.topicName)}</div>
             <div class="session-meta-tags">
-              <span>⏱️ ${session.plannedHours} hours planned</span>
+              <span>⏱️ ${session.plannedHours}h planned</span>
               ${isRevision ? '<span class="badge-revision">Light Exam Revision</span>' : ''}
               ${session.status === 'missed' ? '<span style="color:var(--accent-rose);font-weight:700;">Missed</span>' : ''}
             </div>
@@ -655,17 +905,14 @@
         };
 
         checkbox.addEventListener('click', toggleDone);
-        checkbox.addEventListener('keydown', (e) => {
-          if (e.key === ' ' || e.key === 'Enter') {
-            e.preventDefault();
-            toggleDone();
-          }
-        });
 
         listContainer.appendChild(card);
       });
     }
 
+    // ==========================================
+    // POMODORO TIMER (Timestamp-accurate: No drift)
+    // ==========================================
     setupPomodoro() {
       const storage = getStorage();
       const timeDisplay = document.getElementById('pomo-time-display');
@@ -684,13 +931,14 @@
       }
 
       const updateDisplay = () => {
-        const mins = Math.floor(this.timerSecondsLeft / 60);
-        const secs = this.timerSecondsLeft % 60;
+        const totalSecondsLeft = Math.ceil(this.timerRemainingMs / 1000);
+        const mins = Math.floor(totalSecondsLeft / 60);
+        const secs = totalSecondsLeft % 60;
         timeDisplay.textContent = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
 
         if (progressCircle) {
-          const fraction = 1 - (this.timerSecondsLeft / this.timerDuration);
-          const offset = CIRCUMFERENCE * fraction;
+          const fraction = 1 - (this.timerRemainingMs / this.timerDurationMs);
+          const offset = CIRCUMFERENCE * Math.max(0, Math.min(1, fraction));
           progressCircle.style.strokeDashoffset = String(offset);
         }
       };
@@ -699,8 +947,8 @@
         this.timerMode = mode;
         const settings = storage.loadSettings();
         const mins = mode === 'work' ? (settings.pomodoroWorkMin || 25) : (settings.pomodoroBreakMin || 5);
-        this.timerDuration = mins * 60;
-        this.timerSecondsLeft = this.timerDuration;
+        this.timerDurationMs = mins * 60 * 1000;
+        this.timerRemainingMs = this.timerDurationMs;
         this.pauseTimer();
 
         if (workModeBtn && breakModeBtn) {
@@ -727,7 +975,7 @@
 
       resetBtn?.addEventListener('click', () => {
         this.pauseTimer();
-        this.timerSecondsLeft = this.timerDuration;
+        this.timerRemainingMs = this.timerDurationMs;
         updateDisplay();
       });
 
@@ -739,31 +987,42 @@
       const startPauseBtn = document.getElementById('pomo-start-btn');
       if (startPauseBtn) startPauseBtn.textContent = 'Pause';
 
+      // Timestamp-based calculation: Immune to browser background throttling
+      this.timerEndTime = Date.now() + this.timerRemainingMs;
+
       this.timerInterval = setInterval(() => {
-        if (this.timerSecondsLeft > 0) {
-          this.timerSecondsLeft--;
-          updateDisplay();
-        } else {
+        const now = Date.now();
+        this.timerRemainingMs = Math.max(0, this.timerEndTime - now);
+
+        if (this.timerRemainingMs <= 0) {
           this.pauseTimer();
+          this.timerRemainingMs = 0;
+          updateDisplay();
           playChime();
           showToast(
             this.timerMode === 'work'
-              ? 'Pomodoro complete! Time for a refreshing 5-min break.'
-              : 'Break is over! Ready to dive back in?',
+              ? 'Pomodoro focus complete! Great job. Time for a 5-min break.'
+              : 'Break time is over! Ready to focus again?',
             'success',
             6000
           );
+        } else {
+          updateDisplay();
         }
-      }, 1000);
+      }, 250);
     }
 
     pauseTimer() {
       this.isTimerRunning = false;
       clearInterval(this.timerInterval);
+      this.timerInterval = null;
       const startPauseBtn = document.getElementById('pomo-start-btn');
       if (startPauseBtn) startPauseBtn.textContent = 'Start Focus';
     }
 
+    // ==========================================
+    // SCREEN 3: PLAN (14-day Calendar with Tooltips)
+    // ==========================================
     renderPlanScreen(highlightShifted = false) {
       const grid = document.getElementById('plan-calendar-grid');
       if (!grid) return;
@@ -799,9 +1058,10 @@
           if (session.isRevision) statusClass = 'status-revision';
 
           const shiftClass = highlightShifted && session.status === 'planned' ? 'replan-shifted' : '';
+          const tooltipContent = `${escapeHtml(subject.name)}&#10;• Topic: ${escapeHtml(session.topicName)}&#10;• Planned: ${session.plannedHours}h${session.isRevision ? ' (Pre-Exam Revision)' : ''}&#10;• Status: ${session.status}`;
 
           return `
-            <div class="plan-session-pill ${statusClass} ${shiftClass}" style="--session-color: ${subject.color}" title="${escapeHtml(subject.name)}: ${escapeHtml(session.topicName)}">
+            <div class="plan-session-pill ${statusClass} ${shiftClass}" style="--session-color: ${subject.color}" title="${tooltipContent}" tabindex="0">
               <div style="font-weight: 700; font-size: 0.72rem; text-transform: uppercase; color: ${subject.color}">
                 ${escapeHtml(subject.name)}
               </div>
@@ -817,7 +1077,7 @@
 
         dayCol.innerHTML = `
           <div class="calendar-day-header">
-            <span class="day-name">${dayName}</span>
+            <span class="day-name">${dayName} ${isToday ? '<span class="today-marker">TODAY</span>' : ''}</span>
             <span class="day-date-number">${monthDay}</span>
           </div>
           <div class="day-sessions-stack">
@@ -829,6 +1089,9 @@
       }
     }
 
+    // ==========================================
+    // SCREEN 4: PROGRESS (Circular Gauges & Heatmap)
+    // ==========================================
     renderProgressScreen() {
       const planner = getPlanner();
       const storage = getStorage();
@@ -844,7 +1107,7 @@
       if (readinessContainer) {
         readinessContainer.innerHTML = '';
         if (subjects.length === 0) {
-          readinessContainer.innerHTML = '<div style="color:var(--text-muted);">No subjects to track.</div>';
+          readinessContainer.innerHTML = '<div style="color:var(--text-muted);padding:1rem;">No subjects to track. Add subjects in Setup!</div>';
         } else {
           subjects.forEach(subject => {
             const score = planner.calculateSubjectReadiness(subject);
@@ -852,11 +1115,11 @@
             item.className = 'readiness-item';
             item.innerHTML = `
               <div class="readiness-header-row">
-                <span style="display:flex;align-items:center;gap:0.5rem;">
+                <span style="display:flex;align-items:center;gap:0.5rem;font-weight:600;">
                   <span class="color-dot" style="background-color:${subject.color}"></span>
                   ${escapeHtml(subject.name)}
                 </span>
-                <span style="font-family:var(--font-mono);">${score}% Ready</span>
+                <span style="font-family:var(--font-mono);font-weight:700;">${score}% Ready</span>
               </div>
               <div class="progress-track">
                 <div class="progress-bar" style="width: ${score}%; background-color: ${subject.color};"></div>
@@ -870,7 +1133,7 @@
       if (countdownContainer) {
         countdownContainer.innerHTML = '';
         if (subjects.length === 0) {
-          countdownContainer.innerHTML = '<div style="color:var(--text-muted);">No upcoming exams configured.</div>';
+          countdownContainer.innerHTML = '<div style="color:var(--text-muted);padding:1rem;">No upcoming exams configured.</div>';
         } else {
           const sorted = [...subjects].sort((a, b) => a.examDate.localeCompare(b.examDate));
           sorted.forEach(subject => {
@@ -917,7 +1180,7 @@
       grid.innerHTML = '';
       const logs = storage.loadStudyLogs() || {};
 
-      const totalDays = 84;
+      const totalDays = 84; // 12 weeks * 7 days
       const startDayOffset = -(totalDays - 1);
 
       for (let i = startDayOffset; i <= 0; i++) {
@@ -935,7 +1198,8 @@
         cell.dataset.level = String(level);
         cell.dataset.date = dateStr;
         cell.dataset.hours = String(hours);
-        cell.title = `${dateStr}: ${hours}h studied`;
+        cell.title = `${dateStr}: ${hours}h completed`;
+        cell.setAttribute('aria-label', `${dateStr}: ${hours} hours studied`);
 
         grid.appendChild(cell);
       }
@@ -946,7 +1210,7 @@
       const next = current === 'dark' ? 'light' : 'dark';
       document.documentElement.setAttribute('data-theme', next);
       try {
-        localStorage.setItem('catchup_theme_v1', next);
+        localStorage.setItem('catchup_theme_v2', next);
       } catch (e) {
         console.warn('Could not save theme:', e);
       }
@@ -960,6 +1224,8 @@
   const CatchupUI = {
     playChime,
     showToast,
+    openModal,
+    closeModal,
     UIController
   };
 

@@ -1,6 +1,6 @@
 /**
  * Catchup - Application Entry Point
- * Orchestrates initialization, theme preferences, and keyboard shortcuts.
+ * Orchestrates initialization, theme preferences, keyboard shortcuts, and PWA registration.
  * Supports both browser direct file execution (file://) and module environments.
  */
 
@@ -35,10 +35,20 @@
     const ui = new uiModule.UIController();
     ui.init();
 
-    // 3. Keyboard Shortcuts for Power Users
+    // 3. Global Keyboard Shortcuts
     window.addEventListener('keydown', (e) => {
-      const tag = e.target.tagName.toLowerCase();
-      if (tag === 'input' || tag === 'textarea' || tag === 'select' || e.target.isContentEditable) {
+      // Check if a modal is currently open
+      const openModal = document.querySelector('.modal-overlay.open');
+      if (openModal) {
+        if (e.key === 'Escape') {
+          uiModule.closeModal(openModal);
+        }
+        return; // Don't trigger tab shortcuts while filling forms
+      }
+
+      // Ignore keystrokes when typing in inputs/textareas
+      const tag = (e.target && e.target.tagName) ? e.target.tagName.toLowerCase() : '';
+      if (tag === 'input' || tag === 'textarea' || tag === 'select' || (e.target && e.target.isContentEditable)) {
         return;
       }
 
@@ -59,15 +69,26 @@
       }
     });
 
-    // Listen for system color-scheme changes if set to system
+    // 4. System Color-Scheme Changes Listener
     if (window.matchMedia) {
       window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
-        const currentTheme = localStorage.getItem('catchup_theme_v1');
+        const currentTheme = storage.loadTheme();
         if (!currentTheme || currentTheme === 'system') {
           const newTheme = e.matches ? 'dark' : 'light';
           document.documentElement.setAttribute('data-theme', newTheme);
           if (themeIcon) themeIcon.textContent = newTheme === 'dark' ? '🌙' : '☀️';
         }
+      });
+    }
+
+    // 5. Register PWA Service Worker (Only active when served over HTTPS or localhost)
+    if ('serviceWorker' in navigator && (window.location.protocol === 'https:' || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js').then((reg) => {
+          console.log('Catchup ServiceWorker registered with scope:', reg.scope);
+        }).catch((err) => {
+          console.log('ServiceWorker registration skipped or failed:', err);
+        });
       });
     }
   }

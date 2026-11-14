@@ -11,25 +11,60 @@
   // DATE UTILITIES (ISO YYYY-MM-DD based)
   // ==========================================
 
+  /**
+   * Format a Date object or timestamp to 'YYYY-MM-DD' in local timezone.
+   * Defensively handles Date instances, timestamps, and date strings.
+   * @param {Date|number|string} date
+   * @returns {string}
+   */
   function formatDate(date) {
-    const d = new Date(date);
-    const year = d.getFullYear();
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
+    if (!date) return '';
+    if (typeof date === 'string') {
+      const match = date.match(/^(\d{4})-(\d{2})-(\d{2})/);
+      if (match) return `${match[1]}-${match[2]}-${match[3]}`;
+      date = new Date(date);
+    } else if (typeof date === 'number') {
+      date = new Date(date);
+    }
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
   }
 
+  /**
+   * Parse 'YYYY-MM-DD' into a local Date object set to noon (12:00:00).
+   * Noon avoids daylight saving time (DST) boundary jumps across midnight.
+   * @param {string} dateStr
+   * @returns {Date}
+   */
   function parseDate(dateStr) {
-    const [year, month, day] = dateStr.split('-').map(Number);
-    return new Date(year, month - 1, day, 12, 0, 0); // Noon to avoid DST shifts
+    if (!dateStr || typeof dateStr !== 'string') return new Date();
+    const parts = dateStr.split('-');
+    const year = parseInt(parts[0], 10) || 2026;
+    const month = (parseInt(parts[1], 10) || 1) - 1;
+    const day = parseInt(parts[2], 10) || 1;
+    return new Date(year, month, day, 12, 0, 0);
   }
 
+  /**
+   * Add days to a YYYY-MM-DD date string.
+   * @param {string} dateStr
+   * @param {number} days
+   * @returns {string}
+   */
   function addDays(dateStr, days) {
     const d = parseDate(dateStr);
-    d.setDate(d.getDate() + days);
+    d.setDate(d.getDate() + Number(days));
     return formatDate(d);
   }
 
+  /**
+   * Difference in calendar days between date2 and date1 (date2 - date1).
+   * @param {string} date1Str
+   * @param {string} date2Str
+   * @returns {number}
+   */
   function daysBetween(date1Str, date2Str) {
     const d1 = parseDate(date1Str);
     const d2 = parseDate(date2Str);
@@ -37,6 +72,11 @@
     return Math.round(diffMs / (1000 * 60 * 60 * 24));
   }
 
+  /**
+   * Get weekday index: 0 = Sunday, 1 = Monday, ..., 6 = Saturday.
+   * @param {string} dateStr
+   * @returns {number}
+   */
   function getDayOfWeek(dateStr) {
     return parseDate(dateStr).getDay();
   }
@@ -45,17 +85,31 @@
   // WEIGHTING & HEURISTICS
   // ==========================================
 
+  /**
+   * Urgency multiplier based on days remaining until exam.
+   * Closer exams receive an exponential boost so critical topics bubble to top.
+   * @param {number} daysRemaining
+   * @returns {number}
+   */
   function calculateUrgencyBoost(daysRemaining) {
-    if (daysRemaining <= 0) return 0; // Exam today or passed
+    if (daysRemaining <= 0) return 0;
     return 1 + 6 / Math.max(1, daysRemaining);
   }
 
+  /**
+   * Calculate weight for a topic:
+   * Weight = Difficulty (1-5) * Remaining Hours * Urgency Boost
+   * @param {Object} topic
+   * @param {Object} subject
+   * @param {string} currentDateStr
+   * @returns {number}
+   */
   function calculateTopicWeight(topic, subject, currentDateStr) {
-    const remainingHours = Math.max(0, (topic.estimatedHours || 0) - (topic.hoursDone || 0));
+    const remainingHours = Math.max(0, (Number(topic.estimatedHours) || 0) - (Number(topic.hoursDone) || 0));
     if (remainingHours <= 0) return 0;
 
     const daysToExam = daysBetween(currentDateStr, subject.examDate);
-    if (daysToExam <= 0) return 0; // Past exam date
+    if (daysToExam <= 0) return 0;
 
     const urgency = calculateUrgencyBoost(daysToExam);
     const difficulty = Math.max(1, Math.min(5, Number(topic.difficulty) || 3));
@@ -69,7 +123,9 @@
 
   function isStudyDay(dateStr, settings) {
     const dayOfWeek = getDayOfWeek(dateStr);
-    const studyDays = settings.studyDays || [1, 2, 3, 4, 5, 6, 0];
+    const studyDays = (settings && Array.isArray(settings.studyDays) && settings.studyDays.length > 0)
+      ? settings.studyDays
+      : [1, 2, 3, 4, 5, 6, 0];
     return studyDays.includes(dayOfWeek);
   }
 
@@ -77,26 +133,28 @@
     let totalRemaining = 0;
     const perSubject = {};
 
-    for (const subject of subjects) {
+    for (const subject of (subjects || [])) {
       let subTotal = 0;
       for (const topic of (subject.topics || [])) {
-        const rem = Math.max(0, (topic.estimatedHours || 0) - (topic.hoursDone || 0));
+        const rem = Math.max(0, (Number(topic.estimatedHours) || 0) - (Number(topic.hoursDone) || 0));
         subTotal += rem;
       }
-      perSubject[subject.id] = subTotal;
+      perSubject[subject.id] = Math.round(subTotal * 10) / 10;
       totalRemaining += subTotal;
     }
 
-    return { totalRemaining, perSubject };
+    return { totalRemaining: Math.round(totalRemaining * 10) / 10, perSubject };
   }
 
-  function calculateWorkloadWarning({ subjects, settings, startDate }) {
+  function calculateWorkloadWarning({ subjects = [], settings = {}, startDate }) {
+    if (!startDate) startDate = formatDate(new Date());
     const dailyHours = Math.max(0.5, Number(settings.dailyHours) || 3);
     const subjectWarnings = [];
     let maxExtraDailyNeeded = 0;
     let totalShortfall = 0;
 
     for (const subject of subjects) {
+      if (!subject.examDate) continue;
       const daysUntilExam = daysBetween(startDate, subject.examDate);
       if (daysUntilExam <= 0) continue;
 
@@ -110,7 +168,7 @@
 
       let remainingSubjectHours = 0;
       for (const topic of (subject.topics || [])) {
-        remainingSubjectHours += Math.max(0, (topic.estimatedHours || 0) - (topic.hoursDone || 0));
+        remainingSubjectHours += Math.max(0, (Number(topic.estimatedHours) || 0) - (Number(topic.hoursDone) || 0));
       }
 
       const maxSubjectCapacity = availableDays * dailyHours;
@@ -174,30 +232,38 @@
   // CORE PLANNING & INTERLEAVING ENGINE
   // ==========================================
 
+  /**
+   * Generates a forward-looking study schedule with interleaving and light pre-exam revision.
+   * High performance: optimized topic candidate pooling and early termination.
+   * @param {Object} params
+   * @returns {Array} generated session objects
+   */
   function generatePlan({ subjects = [], settings = {}, startDate, maxDays = 45 }) {
     if (!subjects || subjects.length === 0 || !startDate) return [];
 
-    const dailyHours = Math.max(0.5, Number(settings.dailyHours) || 3);
+    const dailyHours = Math.max(0.5, Math.min(16, Number(settings.dailyHours) || 3));
     const sessions = [];
 
-    const state = subjects.map(s => ({
+    // Filter valid subjects and clone state
+    const validSubjects = subjects.filter(s => s && s.id && s.examDate);
+    const state = validSubjects.map(s => ({
       id: s.id,
-      name: s.name,
-      color: s.color,
+      name: s.name || 'Untitled Subject',
+      color: s.color || '#6366f1',
       examDate: s.examDate,
       topics: (s.topics || []).map(t => ({
         id: t.id,
-        name: t.name,
-        difficulty: Number(t.difficulty) || 3,
-        estimatedHours: Number(t.estimatedHours) || 0,
-        hoursDone: Number(t.hoursDone) || 0,
+        name: t.name || 'Untitled Topic',
+        difficulty: Math.max(1, Math.min(5, Number(t.difficulty) || 3)),
+        estimatedHours: Math.max(0, Number(t.estimatedHours) || 0),
+        hoursDone: Math.max(0, Number(t.hoursDone) || 0),
         remainingHours: Math.max(0, (Number(t.estimatedHours) || 0) - (Number(t.hoursDone) || 0))
       }))
     }));
 
     let latestExamDate = startDate;
     for (const s of state) {
-      if (s.examDate && s.examDate > latestExamDate) {
+      if (s.examDate > latestExamDate) {
         latestExamDate = s.examDate;
       }
     }
@@ -208,9 +274,8 @@
     for (let dayOffset = 0; dayOffset < horizon; dayOffset++) {
       const currentDateStr = addDays(startDate, dayOffset);
 
-      const hasRemainingTopics = state.some(s =>
-        s.topics.some(t => t.remainingHours > 0.05)
-      );
+      // Check if any subject has remaining topics OR upcoming revision days
+      const hasRemainingTopics = state.some(s => s.topics.some(t => t.remainingHours > 0.05));
       const hasUpcomingRevision = state.some(s => {
         const daysToExam = daysBetween(currentDateStr, s.examDate);
         return daysToExam >= 1;
@@ -227,7 +292,7 @@
       let dayHoursLeft = dailyHours;
       const subjectsStudiedToday = new Set();
 
-      // 1. Light Revision days (the calendar day before an exam: examDate - 1)
+      // 1. Light Revision Days (the calendar day before exam: examDate - 1)
       for (const subject of state) {
         const daysToExam = daysBetween(currentDateStr, subject.examDate);
         if (daysToExam === 1) {
@@ -252,9 +317,9 @@
 
       if (dayHoursLeft < 0.5) continue;
 
-      // 2. Iteratively allocate remaining hours for today with interleaved subjects
+      // 2. Interleaved Topic Allocation
       let safetyCounter = 0;
-      while (dayHoursLeft >= 0.5 && safetyCounter++ < 20) {
+      while (dayHoursLeft >= 0.5 && safetyCounter++ < 25) {
         const candidates = [];
 
         for (const subject of state) {
@@ -276,11 +341,17 @@
 
         if (candidates.length === 0) break;
 
-        const notYetStudiedCandidates = candidates.filter(c => !c.alreadyStudiedToday);
-        const pool = notYetStudiedCandidates.length > 0 ? notYetStudiedCandidates : candidates;
+        // Prioritize interleaved subjects
+        const notYetStudied = candidates.filter(c => !c.alreadyStudiedToday);
+        const pool = notYetStudied.length > 0 ? notYetStudied : candidates;
 
-        pool.sort((a, b) => b.weight - a.weight);
-        const chosen = pool[0];
+        // Pick highest weight
+        let chosen = pool[0];
+        for (let i = 1; i < pool.length; i++) {
+          if (pool[i].weight > chosen.weight) {
+            chosen = pool[i];
+          }
+        }
 
         const distinctRemainingSubjects = new Set(candidates.map(c => c.subject.id)).size;
         const targetBlock = distinctRemainingSubjects > 1 ? Math.min(1.5, dayHoursLeft) : dayHoursLeft;
@@ -317,6 +388,16 @@
   // REPLANNING ENGINE
   // ==========================================
 
+  /**
+   * Adaptive re-plan from a specific date forward.
+   * 
+   * Robust edge-case guarantees:
+   * 1. Preserves historical completed sessions.
+   * 2. Automatically converts past uncompleted sessions (date < fromDate) to 'missed' status.
+   * 3. Cleanses sessions for subjects/topics that were deleted.
+   * 4. Properly recalculates topic remaining hours based on actual completed work.
+   * 5. Regenerates future sessions seamlessly.
+   */
   function replan({
     fromDate,
     subjects = [],
@@ -327,12 +408,34 @@
   }) {
     if (!fromDate) fromDate = formatDate(new Date());
 
+    // Map existing valid subject & topic IDs to cleanse deleted items
+    const validSubjectIds = new Set(subjects.map(s => s.id));
+    const validTopicIds = new Set();
+    subjects.forEach(s => {
+      (s.topics || []).forEach(t => validTopicIds.add(t.id));
+    });
+
     const keptSessions = [];
     const futureDiscardedSessions = [];
 
-    for (const session of existingSessions) {
+    for (const session of (existingSessions || [])) {
+      // If the subject was completely deleted, drop future planned sessions
+      if (!validSubjectIds.has(session.subjectId) && session.date >= fromDate) {
+        continue;
+      }
+
       if (session.date < fromDate) {
-        keptSessions.push({ ...session });
+        // Past session: keep as record
+        if (session.status === 'planned') {
+          // BUG FIX: Any uncompleted past session is marked 'missed'
+          keptSessions.push({
+            ...session,
+            status: 'missed',
+            doneHours: 0
+          });
+        } else {
+          keptSessions.push({ ...session });
+        }
       } else if (session.date === fromDate) {
         if (session.status === 'done') {
           keptSessions.push({ ...session });
@@ -340,6 +443,7 @@
           futureDiscardedSessions.push(session);
         }
       } else {
+        // Future date
         if (session.status === 'done') {
           keptSessions.push({ ...session });
         } else {
@@ -351,20 +455,24 @@
     let effectiveStartDate = fromDate;
 
     if (missedToday) {
-      const todayUncompleted = existingSessions.filter(s => s.date === fromDate && s.status !== 'done');
+      const todayUncompleted = (existingSessions || []).filter(s => s.date === fromDate && s.status !== 'done');
       for (const session of todayUncompleted) {
-        keptSessions.push({
-          ...session,
-          status: 'missed',
-          doneHours: 0
-        });
+        if (validSubjectIds.has(session.subjectId)) {
+          keptSessions.push({
+            ...session,
+            status: 'missed',
+            doneHours: 0
+          });
+        }
       }
       effectiveStartDate = addDays(fromDate, 1);
     } else if (completedHoursToday !== null) {
       let remainingToDistribute = Math.max(0, Number(completedHoursToday));
-      const todayUncompleted = existingSessions.filter(s => s.date === fromDate && s.status !== 'done');
+      const todayUncompleted = (existingSessions || []).filter(s => s.date === fromDate && s.status !== 'done');
 
       for (const session of todayUncompleted) {
+        if (!validSubjectIds.has(session.subjectId)) continue;
+
         if (remainingToDistribute <= 0) {
           keptSessions.push({
             ...session,
@@ -384,6 +492,7 @@
       effectiveStartDate = addDays(fromDate, 1);
     }
 
+    // Compute actual done hours per topic from kept sessions
     const topicDoneMap = {};
     for (const session of keptSessions) {
       if (session.topicId && session.topicId !== 'revision' && (session.doneHours > 0 || session.status === 'done')) {
@@ -392,6 +501,7 @@
       }
     }
 
+    // Update subjects with calculated hoursDone
     const updatedSubjects = subjects.map(s => ({
       ...s,
       topics: (s.topics || []).map(t => {
@@ -403,12 +513,14 @@
       })
     }));
 
+    // Generate new future sessions
     const newFutureSessions = generatePlan({
       subjects: updatedSubjects,
       settings,
       startDate: effectiveStartDate
     });
 
+    // Merge and sort
     const allSessions = [...keptSessions, ...newFutureSessions].sort((a, b) => {
       if (a.date !== b.date) return a.date.localeCompare(b.date);
       return a.id.localeCompare(b.id);
@@ -438,17 +550,17 @@
 
   function buildDiffSummary({ discardedSessions, newSessions, subjects, missedToday, completedHoursToday }) {
     const subjectMap = {};
-    for (const s of subjects) {
+    for (const s of (subjects || [])) {
       subjectMap[s.id] = s.name;
     }
 
     if (missedToday) {
       const movedHours = discardedSessions.reduce((acc, s) => acc + (s.plannedHours || 0), 0);
-      return `Logged day as missed. Shifted ${Math.round(movedHours * 10) / 10}h across upcoming study days.`;
+      return `Marked today as missed. Rescheduled ${Math.round(movedHours * 10) / 10}h across upcoming study days.`;
     }
 
     if (completedHoursToday !== null) {
-      return `Recorded ${completedHoursToday}h today. Remaining topics re-balanced across future days.`;
+      return `Logged ${completedHoursToday}h today. Remaining topics re-balanced across future days.`;
     }
 
     const totalNewHours = newSessions.reduce((acc, s) => acc + (s.plannedHours || 0), 0);
@@ -456,7 +568,7 @@
     const names = subjectsInvolved.join(' & ');
 
     if (totalNewHours === 0) {
-      return 'All topics are already completed! Plan is up to date.';
+      return 'All topics are completed! Plan is up to date.';
     }
 
     return `Adaptive re-plan complete: redistributed ${Math.round(totalNewHours * 10) / 10}h (${names || 'all subjects'}).`;
@@ -467,7 +579,7 @@
   // ==========================================
 
   function calculateSubjectReadiness(subject) {
-    if (!subject.topics || subject.topics.length === 0) return 0;
+    if (!subject || !subject.topics || subject.topics.length === 0) return 0;
 
     let totalWeighted = 0;
     let doneWeighted = 0;
@@ -486,7 +598,7 @@
   }
 
   function calculateOverallReadiness(subjects) {
-    if (!subjects || subjects.length === 0) return 0;
+    if (!subjects || !Array.isArray(subjects) || subjects.length === 0) return 0;
     let totalWeighted = 0;
     let doneWeighted = 0;
 

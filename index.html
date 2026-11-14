@@ -4,7 +4,13 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Catchup - Adaptive Study Planner</title>
-  <meta name="description" content="Catchup automatically re-plans your study schedule the moment you miss a day, keeping your exam prep on track.">
+  <meta name="description" content="Catchup is an adaptive study planner that automatically re-plans your remaining schedule when life happens.">
+  <meta name="theme-color" content="#6366f1">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="manifest" href="manifest.json">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="styles.css">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⚡</text></svg>">
 </head>
@@ -13,7 +19,7 @@
     <!-- Navigation Bar -->
     <header class="navbar" role="banner">
       <div class="brand">
-        <div class="brand-icon">⚡</div>
+        <div class="brand-icon" aria-hidden="true">⚡</div>
         <div>
           <span class="brand-title">Catchup</span>
           <span class="brand-badge">Adaptive Planner</span>
@@ -22,42 +28,42 @@
 
       <!-- Tab Buttons -->
       <nav class="tab-nav" role="tablist" aria-label="Main Navigation">
-        <button class="tab-btn" data-tab="setup" role="tab" id="tab-nav-setup" aria-selected="false">
-          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"/></svg>
+        <button class="tab-btn" data-tab="setup" role="tab" id="tab-nav-setup" aria-selected="false" aria-controls="tab-setup">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"/></svg>
           Setup
         </button>
-        <button class="tab-btn active" data-tab="today" role="tab" id="tab-nav-today" aria-selected="true">
-          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+        <button class="tab-btn active" data-tab="today" role="tab" id="tab-nav-today" aria-selected="true" aria-controls="tab-today">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
           Today
         </button>
-        <button class="tab-btn" data-tab="plan" role="tab" id="tab-nav-plan" aria-selected="false">
-          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/></svg>
+        <button class="tab-btn" data-tab="plan" role="tab" id="tab-nav-plan" aria-selected="false" aria-controls="tab-plan">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/></svg>
           Plan
         </button>
-        <button class="tab-btn" data-tab="progress" role="tab" id="tab-nav-progress" aria-selected="false">
-          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+        <button class="tab-btn" data-tab="progress" role="tab" id="tab-nav-progress" aria-selected="false" aria-controls="tab-progress">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
           Progress
         </button>
       </nav>
 
       <!-- Utility Actions -->
       <div class="nav-controls">
-        <button class="btn btn-secondary btn-sm btn-load-demo" title="Load sample study data">
+        <button class="btn btn-secondary btn-sm btn-load-demo" title="Load sample 3-subject study schedule">
           ⚡ Demo Data
         </button>
-        <button class="btn-icon" id="theme-toggle-btn" aria-label="Toggle Theme" title="Toggle dark/light theme">
+        <button class="btn-icon" id="theme-toggle-btn" aria-label="Toggle Dark and Light Theme" title="Toggle dark/light theme">
           <span id="theme-icon">🌙</span>
         </button>
-        <a href="tests.html" class="btn-icon" aria-label="Run Unit Tests" title="Run Planner Unit Tests">
+        <a href="tests.html" class="btn-icon" aria-label="Run Unit Test Suite" title="Run Planner Unit Tests">
           <span>🧪</span>
         </a>
       </div>
     </header>
 
-    <!-- Workload Warning Alert Banner (Visible when hours exceed capacity) -->
-    <div id="workload-warning-banner" class="warning-banner" style="display: none;" role="alert">
+    <!-- Workload Warning Alert Banner -->
+    <div id="workload-warning-banner" class="warning-banner" style="display: none;" role="alert" aria-live="assertive">
       <div class="warning-content">
-        <div class="warning-icon">⚠️</div>
+        <div class="warning-icon" aria-hidden="true">⚠️</div>
         <div class="warning-text">
           <!-- Dynamic Content -->
         </div>
@@ -72,11 +78,12 @@
         <div class="screen-header">
           <div>
             <h2 class="screen-title">Study Setup & Curriculum</h2>
-            <p class="screen-subtitle">Define your subjects, difficulty levels, exam deadlines, and daily study capacity.</p>
+            <p class="screen-subtitle">Define your subjects, difficulty levels, exam deadlines, and daily capacity.</p>
           </div>
-          <div style="display: flex; gap: 0.5rem;">
+          <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
             <button class="btn btn-primary" id="btn-add-subject">+ Add Subject</button>
             <button class="btn btn-secondary btn-load-demo">⚡ Load Demo</button>
+            <button class="btn btn-danger btn-sm" id="btn-reset-data" style="margin-left: 0.25rem;">Reset All Data</button>
           </div>
         </div>
 
@@ -87,13 +94,14 @@
             
             <div class="form-group">
               <label class="form-label" for="setting-daily-hours">Daily Available Hours</label>
-              <input type="number" id="setting-daily-hours" class="form-control" min="0.5" max="16" step="0.5" value="3">
-              <small style="color:var(--text-muted);font-size:0.75rem;">Catchup will allocate up to this many hours each study day.</small>
+              <input type="number" id="setting-daily-hours" class="form-control" min="0.5" max="16" step="0.5" value="3" aria-describedby="setting-daily-hours-error">
+              <div id="setting-daily-hours-error" class="form-error-msg" role="alert"></div>
+              <small style="color:var(--text-muted);font-size:0.75rem;margin-top:0.25rem;display:block;">Catchup will allocate up to this many hours each active study day.</small>
             </div>
 
             <div class="form-group">
               <label class="form-label">Active Study Days</label>
-              <div class="days-selector">
+              <div class="days-selector" role="group" aria-label="Select study days of the week">
                 <label class="day-checkbox-label" data-day="1"><span>M</span></label>
                 <label class="day-checkbox-label" data-day="2"><span>T</span></label>
                 <label class="day-checkbox-label" data-day="3"><span>W</span></label>
@@ -106,11 +114,11 @@
             </div>
 
             <div style="margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid var(--border-subtle);">
-              <h4 style="font-size: 0.9rem; margin-bottom: 0.5rem;">💡 How Adaptive Planning Works</h4>
-              <p style="font-size: 0.8rem; color: var(--text-secondary); line-height: 1.4;">
-                Topics are prioritised using: <br>
+              <h4 style="font-size: 0.92rem; margin-bottom: 0.5rem;">💡 How Adaptive Planning Works</h4>
+              <p style="font-size: 0.82rem; color: var(--text-secondary); line-height: 1.45;">
+                Topics are prioritized using: <br>
                 <code>Weight = Difficulty × Hours × Urgency</code><br>
-                Closer exams get an exponential boost. Subjects are interleaved across days to maximize cognitive retention.
+                Closer exams receive an exponential boost. Subjects are interleaved across days to maximize long-term memory retention.
               </p>
             </div>
           </div>
@@ -127,7 +135,7 @@
       <!-- SCREEN 2: TODAY -->
       <section id="tab-today" class="tab-content active" role="tabpanel" aria-labelledby="tab-nav-today">
         <div class="today-layout">
-          <!-- Left Column: Today's Tasks & Catchup Actions -->
+          <!-- Left Column: Hero Session, Daily Progress, Checklist & Catchup Actions -->
           <div>
             <div class="screen-header" style="margin-bottom: 1rem;">
               <div>
@@ -136,9 +144,25 @@
               </div>
             </div>
 
+            <!-- Prominent Focus Hero Card -->
+            <div id="today-hero-container">
+              <!-- Dynamically populated with next session or completed state -->
+            </div>
+
+            <!-- Daily Progress Gauge -->
+            <div class="today-progress-widget">
+              <div class="daily-progress-header">
+                <span>Daily Study Goal</span>
+                <span id="today-daily-progress-label">0 / 0h (0%)</span>
+              </div>
+              <div class="daily-progress-track">
+                <div class="daily-progress-fill" id="today-daily-progress-bar" style="width: 0%;"></div>
+              </div>
+            </div>
+
             <!-- Quick Catchup Actions Bar -->
             <div class="today-actions-bar">
-              <span style="font-size: 0.88rem; font-weight: 600; color: var(--text-secondary);">Fell behind or plans changed?</span>
+              <span style="font-size: 0.88rem; font-weight: 600; color: var(--text-secondary);">Plans changed or behind schedule?</span>
               <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
                 <button class="btn btn-warning btn-sm" id="btn-missed-today">⚡ I missed today</button>
                 <button class="btn btn-secondary btn-sm" id="btn-partial-hours">⏱️ I only did ___ hours</button>
@@ -154,28 +178,28 @@
           <!-- Right Column: Built-in Pomodoro Focus Timer -->
           <div>
             <div class="pomodoro-card">
-              <div class="pomodoro-modes">
-                <button class="pomo-mode-btn active" id="pomo-mode-work">Focus (25m)</button>
-                <button class="pomo-mode-btn" id="pomo-mode-break">Break (5m)</button>
+              <div class="pomodoro-modes" role="tablist" aria-label="Timer interval selection">
+                <button class="pomo-mode-btn active" id="pomo-mode-work" role="tab" aria-selected="true">Focus (25m)</button>
+                <button class="pomo-mode-btn" id="pomo-mode-break" role="tab" aria-selected="false">Break (5m)</button>
               </div>
 
-              <div class="timer-circle-wrap">
+              <div class="timer-circle-wrap" aria-hidden="true">
                 <svg class="timer-svg" viewBox="0 0 200 200">
                   <circle class="timer-svg-bg" cx="100" cy="100" r="90"></circle>
                   <circle class="timer-svg-progress" id="pomo-progress-circle" cx="100" cy="100" r="90"></circle>
                 </svg>
                 <div class="timer-center-content">
-                  <div class="timer-time-display" id="pomo-time-display">25:00</div>
+                  <div class="timer-time-display" id="pomo-time-display" aria-live="polite">25:00</div>
                   <div class="timer-label-display">Focus Block</div>
                 </div>
               </div>
 
               <div class="timer-controls-row">
-                <button class="btn btn-primary" id="pomo-start-btn" style="min-width: 120px;">Start Focus</button>
+                <button class="btn btn-primary" id="pomo-start-btn" style="min-width: 130px;">Start Focus</button>
                 <button class="btn btn-secondary" id="pomo-reset-btn">Reset</button>
               </div>
-              <p style="margin-top: 1rem; font-size: 0.75rem; color: var(--text-muted);">
-                Soft audio chime sounds when timer ends • [Space] to Start/Pause
+              <p style="margin-top: 1rem; font-size: 0.78rem; color: var(--text-muted); line-height: 1.4;">
+                Soft chime plays at session end • Press [Space] to Start/Pause
               </p>
             </div>
           </div>
@@ -201,19 +225,19 @@
         <div class="screen-header">
           <div>
             <h2 class="screen-title">Exam Readiness & Consistency</h2>
-            <p class="screen-subtitle">Track difficulty-weighted mastery, countdowns, and historical study cadence.</p>
+            <p class="screen-subtitle">Difficulty-weighted mastery, countdowns, and historical study cadence.</p>
           </div>
           <div>
             <div style="font-size: 0.8rem; text-transform: uppercase; color: var(--text-muted); font-weight: 700;">Overall Mastery</div>
-            <div style="font-size: 1.8rem; font-weight: 800; font-family: var(--font-display); color: var(--accent-emerald);" id="overall-readiness-val">0%</div>
+            <div style="font-size: 1.85rem; font-weight: 800; font-family: var(--font-display); color: var(--accent-emerald);" id="overall-readiness-val">0%</div>
           </div>
         </div>
 
         <div class="progress-grid">
           <!-- Subject Readiness Scores -->
           <div class="progress-card">
-            <h3 style="margin-bottom: 1rem;">🎯 Subject Readiness</h3>
-            <p style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 1.25rem;">
+            <h3 style="margin-bottom: 0.75rem;">🎯 Subject Readiness</h3>
+            <p style="font-size: 0.82rem; color: var(--text-secondary); margin-bottom: 1.25rem;">
               Calculated as: <code>∑ (HoursDone × Difficulty) / ∑ (TotalHours × Difficulty)</code>
             </p>
             <div id="readiness-scores-container">
@@ -223,7 +247,7 @@
 
           <!-- Exam Countdowns -->
           <div class="progress-card">
-            <h3 style="margin-bottom: 1rem;">⏳ Upcoming Exam Countdowns</h3>
+            <h3 style="margin-bottom: 1rem;">⏳ Upcoming Exam Deadlines</h3>
             <div id="exam-countdown-container" class="countdown-cards-list">
               <!-- Dynamically populated -->
             </div>
@@ -233,18 +257,18 @@
           <div class="heatmap-container-card">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
               <div>
-                <h3 style="font-size: 1.15rem;">🔥 Study Consistency Heatmap</h3>
-                <p style="font-size: 0.8rem; color: var(--text-secondary);">Hours completed across the last 12 weeks</p>
+                <h3 style="font-size: 1.2rem;">🔥 Study Consistency Heatmap</h3>
+                <p style="font-size: 0.82rem; color: var(--text-secondary);">Hours completed across the last 12 weeks</p>
               </div>
             </div>
 
             <div class="heatmap-scroll-wrapper">
-              <div id="study-heatmap-grid" class="heatmap-grid">
+              <div id="study-heatmap-grid" class="heatmap-grid" role="grid" aria-label="Study hours activity heatmap">
                 <!-- 7 rows x 12 cols dynamically rendered -->
               </div>
             </div>
 
-            <div class="heatmap-legend">
+            <div class="heatmap-legend" aria-hidden="true">
               <span>Less</span>
               <div class="legend-square heatmap-cell" data-level="0"></div>
               <div class="legend-square heatmap-cell" data-level="1"></div>
@@ -262,35 +286,37 @@
     <footer class="app-footer">
       <div>Catchup • Adaptive Study Planner • Built with Vanilla JS &amp; CSS</div>
       <div>
-        <a href="tests.html" style="margin-right: 1rem;">🧪 Planner Unit Tests</a>
-        <span>Keyboard shortcuts: [1-4] switch tabs, [Space] start timer</span>
+        <a href="tests.html" style="margin-right: 1.25rem;">🧪 Planner Unit Tests</a>
+        <span>Shortcuts: [1-4] switch tabs, [Space] start timer</span>
       </div>
     </footer>
   </div>
 
   <!-- ==========================================
-       MODALS
+       ACCESSIBLE MODALS
        ========================================== -->
 
   <!-- Modal: Add Subject -->
-  <div class="modal-overlay" id="subject-modal" role="dialog" aria-modal="true" aria-labelledby="modal-subject-title">
+  <div class="modal-overlay" id="subject-modal" role="dialog" aria-modal="true" aria-labelledby="modal-subject-title" aria-hidden="true">
     <div class="modal-dialog">
       <div class="modal-header">
         <h3 id="modal-subject-title">Add New Subject</h3>
         <button class="btn-icon modal-close-btn" aria-label="Close modal">✕</button>
       </div>
-      <form id="subject-form">
+      <form id="subject-form" novalidate>
         <div class="form-group">
           <label class="form-label" for="subject-name">Subject Name</label>
-          <input type="text" id="subject-name" class="form-control" placeholder="e.g. Distributed Systems" required>
+          <input type="text" id="subject-name" class="form-control" placeholder="e.g. Distributed Systems" required aria-describedby="subject-name-error">
+          <div id="subject-name-error" class="form-error-msg" role="alert"></div>
         </div>
         <div class="form-group">
           <label class="form-label" for="subject-color">Accent Color</label>
-          <input type="color" id="subject-color" class="form-control" value="#6366f1" style="height: 42px; padding: 4px; cursor: pointer;">
+          <input type="color" id="subject-color" class="form-control" value="#6366f1" style="height: 44px; padding: 4px; cursor: pointer;">
         </div>
         <div class="form-group">
           <label class="form-label" for="subject-exam-date">Exam Date</label>
-          <input type="date" id="subject-exam-date" class="form-control" required>
+          <input type="date" id="subject-exam-date" class="form-control" required aria-describedby="subject-exam-date-error">
+          <div id="subject-exam-date-error" class="form-error-msg" role="alert"></div>
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-secondary modal-close-btn">Cancel</button>
@@ -301,19 +327,20 @@
   </div>
 
   <!-- Modal: Add Topic -->
-  <div class="modal-overlay" id="topic-modal" role="dialog" aria-modal="true" aria-labelledby="modal-topic-title">
+  <div class="modal-overlay" id="topic-modal" role="dialog" aria-modal="true" aria-labelledby="modal-topic-title" aria-hidden="true">
     <div class="modal-dialog">
       <div class="modal-header">
         <h3 id="modal-topic-title">Add New Topic</h3>
         <button class="btn-icon modal-close-btn" aria-label="Close modal">✕</button>
       </div>
-      <form id="topic-form">
+      <form id="topic-form" novalidate>
         <div class="form-group">
           <label class="form-label" for="topic-name">Topic Name</label>
-          <input type="text" id="topic-name" class="form-control" placeholder="e.g. Raft Consensus Algorithm" required>
+          <input type="text" id="topic-name" class="form-control" placeholder="e.g. Raft Consensus Algorithm" required aria-describedby="topic-name-error">
+          <div id="topic-name-error" class="form-error-msg" role="alert"></div>
         </div>
         <div class="form-group">
-          <label class="form-label" for="topic-difficulty">Difficulty (1 = Easy, 5 = Hard)</label>
+          <label class="form-label" for="topic-difficulty">Difficulty (1 = Easy, 5 = Deep)</label>
           <select id="topic-difficulty" class="form-control">
             <option value="1">1 - Easy (Quick revision)</option>
             <option value="2">2 - Moderate</option>
@@ -324,7 +351,8 @@
         </div>
         <div class="form-group">
           <label class="form-label" for="topic-hours">Estimated Hours Needed</label>
-          <input type="number" id="topic-hours" class="form-control" min="0.5" max="40" step="0.5" value="3" required>
+          <input type="number" id="topic-hours" class="form-control" min="0.5" max="40" step="0.5" value="3" required aria-describedby="topic-hours-error">
+          <div id="topic-hours-error" class="form-error-msg" role="alert"></div>
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-secondary modal-close-btn">Cancel</button>
@@ -335,19 +363,20 @@
   </div>
 
   <!-- Modal: Partial Hours ("I only did ___ hours") -->
-  <div class="modal-overlay" id="partial-hours-modal" role="dialog" aria-modal="true" aria-labelledby="modal-partial-title">
+  <div class="modal-overlay" id="partial-hours-modal" role="dialog" aria-modal="true" aria-labelledby="modal-partial-title" aria-hidden="true">
     <div class="modal-dialog">
       <div class="modal-header">
-        <h3 id="modal-partial-title">Log Today's Actual Study Hours</h3>
+        <h3 id="modal-partial-title">Log Today's Study Hours</h3>
         <button class="btn-icon modal-close-btn" aria-label="Close modal">✕</button>
       </div>
       <div>
-        <p style="font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 1.25rem;">
-          Didn't hit your target today? No guilt! Enter how many hours you actually studied, and Catchup will intelligently adapt the remaining workload across upcoming days.
+        <p style="font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 1.25rem; line-height: 1.45;">
+          Didn't finish all scheduled sessions today? No guilt! Enter how many hours you actually studied, and Catchup will intelligently re-balance the remainder across future days.
         </p>
         <div class="form-group">
           <label class="form-label" for="partial-hours-input">Hours Completed Today</label>
-          <input type="number" id="partial-hours-input" class="form-control" min="0" max="16" step="0.5" value="1.5">
+          <input type="number" id="partial-hours-input" class="form-control" min="0" max="24" step="0.5" value="1.5" aria-describedby="partial-hours-input-error">
+          <div id="partial-hours-input-error" class="form-error-msg" role="alert"></div>
         </div>
       </div>
       <div class="modal-footer">
@@ -357,10 +386,29 @@
     </div>
   </div>
 
+  <!-- Modal: Confirm Reset All Data -->
+  <div class="modal-overlay" id="reset-modal" role="dialog" aria-modal="true" aria-labelledby="modal-reset-title" aria-hidden="true">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h3 id="modal-reset-title">Reset All Study Data?</h3>
+        <button class="btn-icon modal-close-btn" aria-label="Close modal">✕</button>
+      </div>
+      <div>
+        <p style="font-size: 0.92rem; color: var(--text-secondary); line-height: 1.45;">
+          This will permanently delete all custom subjects, curriculum topics, study logs, and your active schedule. You can reload demo data at any time.
+        </p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary modal-close-btn">Cancel</button>
+        <button type="button" class="btn btn-danger" id="btn-confirm-reset">Yes, Reset Everything</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Toast Notification Container -->
   <div id="toast-container" class="toast-container" aria-live="polite"></div>
 
-  <!-- Application Scripts (Loaded in dependency order to support file:// direct execution) -->
+  <!-- Application Scripts (Loaded in order for 100% zero-CORS file:// direct execution) -->
   <script src="planner.js"></script>
   <script src="storage.js"></script>
   <script src="ui.js"></script>
