@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Catchup - Test Runner (Planner Tests)</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --card-bg: #1e293b;
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+      --border: #334155;
+      --pass: #10b981;
+      --fail: #ef4444;
+      --accent: #6366f1;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      margin: 0;
+      padding: 2rem;
+    }
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+    }
+    header {
+      margin-bottom: 2rem;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 1rem;
+    }
+    h1 {
+      margin: 0 0 0.5rem 0;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .badge {
+      display: inline-block;
+      padding: 0.25rem 0.6rem;
+      border-radius: 9999px;
+      font-size: 0.85rem;
+      font-weight: 600;
+    }
+    .badge-pass { background: rgba(16, 185, 129, 0.2); color: #34d399; border: 1px solid #10b981; }
+    .badge-fail { background: rgba(239, 68, 68, 0.2); color: #f87171; border: 1px solid #ef4444; }
+    .stats {
+      display: flex;
+      gap: 1.5rem;
+      font-size: 1.1rem;
+      margin-top: 1rem;
+    }
+    .test-suite {
+      background: var(--card-bg);
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      overflow: hidden;
+      margin-bottom: 1.5rem;
+    }
+    .suite-header {
+      padding: 1rem 1.25rem;
+      background: rgba(255, 255, 255, 0.03);
+      font-weight: 700;
+      border-bottom: 1px solid var(--border);
+      font-size: 1.05rem;
+    }
+    .test-item {
+      padding: 0.85rem 1.25rem;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: flex-start;
+      gap: 1rem;
+      font-size: 0.95rem;
+    }
+    .test-item:last-child {
+      border-bottom: none;
+    }
+    .test-status {
+      font-weight: 700;
+      font-size: 0.8rem;
+      padding: 0.2rem 0.5rem;
+      border-radius: 4px;
+      text-transform: uppercase;
+      min-width: 45px;
+      text-align: center;
+    }
+    .test-status.pass { background: var(--pass); color: #000; }
+    .test-status.fail { background: var(--fail); color: #fff; }
+    .test-details {
+      flex: 1;
+    }
+    .test-error {
+      color: #f87171;
+      font-family: monospace;
+      font-size: 0.85rem;
+      margin-top: 0.4rem;
+      background: rgba(239, 68, 68, 0.1);
+      padding: 0.5rem;
+      border-radius: 4px;
+      white-space: pre-wrap;
+    }
+    .back-link {
+      display: inline-block;
+      margin-top: 1.5rem;
+      color: var(--accent);
+      text-decoration: none;
+      font-weight: 600;
+    }
+    .back-link:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Catchup - Planner Algorithm Test Suite</h1>
+      <p style="color: var(--text-muted); margin: 0;">Automated browser test runner for core adaptive scheduling, interleaving, and re-planning logic.</p>
+      <div class="stats" id="stats">Running tests...</div>
+    </header>
+
+    <div id="results"></div>
+
+    <a href="index.html" class="back-link">&larr; Return to Catchup App</a>
+  </div>
+
+  <script src="planner.js"></script>
+  <script>
+    const {
+      formatDate,
+      parseDate,
+      addDays,
+      daysBetween,
+      calculateUrgencyBoost,
+      calculateTopicWeight,
+      calculateSubjectReadiness,
+      calculateWorkloadWarning,
+      generatePlan,
+      replan
+    } = window.CatchupPlanner;
+
+    const testResults = [];
+
+    function assert(condition, message) {
+      if (!condition) {
+        throw new Error(message || 'Assertion failed');
+      }
+    }
+
+    function assertEqual(actual, expected, message) {
+      if (actual !== expected) {
+        throw new Error(`${message || 'Assertion failed'}: expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`);
+      }
+    }
+
+    async function runTest(suiteName, testName, testFn) {
+      try {
+        await testFn();
+        testResults.push({ suite: suiteName, name: testName, passed: true });
+      } catch (err) {
+        testResults.push({ suite: suiteName, name: testName, passed: false, error: err.message || String(err) });
+      }
+    }
+
+    async function executeAllTests() {
+      const TODAY = '2026-11-14';
+
+      // Suite 1: Date & Weight Math
+      await runTest('Weighting & Urgency', 'calculateUrgencyBoost scales inversely with days left', () => {
+        const boost1 = calculateUrgencyBoost(1);
+        const boost5 = calculateUrgencyBoost(5);
+        const boost14 = calculateUrgencyBoost(14);
+        assert(boost1 > boost5, '1 day away should have higher urgency than 5 days');
+        assert(boost5 > boost14, '5 days away should have higher urgency than 14 days');
+        assertEqual(calculateUrgencyBoost(0), 0, 'Exam today or passed yields 0 boost');
+      });
+
+      await runTest('Weighting & Urgency', 'calculateTopicWeight incorporates difficulty, remaining hours & urgency', () => {
+        const subject = { examDate: addDays(TODAY, 5) };
+        const topicEasy = { difficulty: 1, estimatedHours: 4, hoursDone: 0 };
+        const topicHard = { difficulty: 5, estimatedHours: 4, hoursDone: 0 };
+        const wEasy = calculateTopicWeight(topicEasy, subject, TODAY);
+        const wHard = calculateTopicWeight(topicHard, subject, TODAY);
+        assert(wHard > wEasy * 4.5, 'Difficulty 5 topic should outweigh difficulty 1 topic by 5x');
+
+        const topicDone = { difficulty: 5, estimatedHours: 4, hoursDone: 4 };
+        assertEqual(calculateTopicWeight(topicDone, subject, TODAY), 0, 'Completed topic has 0 weight');
+      });
+
+      // Suite 2: Plan Generation & Constraints
+      await runTest('Plan Generation', 'Never schedules past subject exam date', () => {
+        const subjects = [{
+          id: 's1',
+          name: 'Physics',
+          examDate: addDays(TODAY, 3), // Exam in 3 days
+          topics: [
+            { id: 't1', name: 'Optics', difficulty: 4, estimatedHours: 8, hoursDone: 0 }
+          ]
+        }];
+        const settings = { dailyHours: 3, studyDays: [0, 1, 2, 3, 4, 5, 6] };
+        const sessions = generatePlan({ subjects, settings, startDate: TODAY });
+
+        for (const s of sessions) {
+          assert(s.date < subjects[0].examDate, `Session date ${s.date} must be strictly before exam date ${subjects[0].examDate}`);
+        }
+      });
+
+      await runTest('Plan Generation', 'Leaves the day before exam as a light revision session', () => {
+        const subjects = [{
+          id: 's1',
+          name: 'Chemistry',
+          examDate: addDays(TODAY, 4),
+          topics: [
+            { id: 't1', name: 'Thermodynamics', difficulty: 3, estimatedHours: 6, hoursDone: 0 }
+          ]
+        }];
+        const settings = { dailyHours: 3, studyDays: [0, 1, 2, 3, 4, 5, 6] };
+        const sessions = generatePlan({ subjects, settings, startDate: TODAY });
+
+        const revDay = addDays(subjects[0].examDate, -1);
+        const revSessions = sessions.filter(s => s.date === revDay && s.isRevision);
+        assert(revSessions.length > 0, `Expected a revision session on ${revDay}`);
+        assert(revSessions[0].plannedHours <= 1.0, 'Revision session should be light (<= 1.0h)');
+      });
+
+      await runTest('Plan Generation', 'Interleaves subjects when multiple subjects have remaining work', () => {
+        const subjects = [
+          {
+            id: 's1',
+            name: 'Math',
+            examDate: addDays(TODAY, 6),
+            topics: [{ id: 't1', name: 'Algebra', difficulty: 4, estimatedHours: 4, hoursDone: 0 }]
+          },
+          {
+            id: 's2',
+            name: 'History',
+            examDate: addDays(TODAY, 7),
+            topics: [{ id: 't2', name: 'WW2', difficulty: 3, estimatedHours: 4, hoursDone: 0 }]
+          }
+        ];
+        const settings = { dailyHours: 3, studyDays: [0, 1, 2, 3, 4, 5, 6] };
+        const sessions = generatePlan({ subjects, settings, startDate: TODAY });
+
+        const day1Sessions = sessions.filter(s => s.date === TODAY);
+        const day1Subjects = new Set(day1Sessions.map(s => s.subjectId));
+        assert(day1Subjects.size >= 2, 'Day 1 should have interleaved at least 2 subjects when both are pending');
+      });
+
+      // Suite 3: Re-planning & Edge Cases
+      await runTest('Replanning Engine', 'replan preserves completed sessions and reallocates future ones', () => {
+        const subjects = [{
+          id: 's1',
+          name: 'Bio',
+          examDate: addDays(TODAY, 6),
+          topics: [
+            { id: 't1', name: 'Genetics', difficulty: 3, estimatedHours: 6, hoursDone: 0 }
+          ]
+        }];
+        const settings = { dailyHours: 3, studyDays: [0, 1, 2, 3, 4, 5, 6] };
+        const initialSessions = generatePlan({ subjects, settings, startDate: TODAY });
+
+        // Mark today's first session as done
+        const existing = initialSessions.map(s => ({ ...s }));
+        existing[0].status = 'done';
+        existing[0].doneHours = existing[0].plannedHours;
+
+        const replanResult = replan({
+          fromDate: TODAY,
+          subjects,
+          settings,
+          existingSessions: existing
+        });
+
+        const keptDone = replanResult.newSessions.filter(s => s.id === existing[0].id && s.status === 'done');
+        assertEqual(keptDone.length, 1, 'Completed session must be preserved');
+      });
+
+      await runTest('Replanning Engine', '"I missed today" marks today missed and pushes hours forward', () => {
+        const subjects = [{
+          id: 's1',
+          name: 'Economics',
+          examDate: addDays(TODAY, 6),
+          topics: [
+            { id: 't1', name: 'Macro', difficulty: 4, estimatedHours: 5, hoursDone: 0 }
+          ]
+        }];
+        const settings = { dailyHours: 2, studyDays: [0, 1, 2, 3, 4, 5, 6] };
+        const initialSessions = generatePlan({ subjects, settings, startDate: TODAY });
+
+        const replanResult = replan({
+          fromDate: TODAY,
+          subjects,
+          settings,
+          existingSessions: initialSessions,
+          missedToday: true
+        });
+
+        // Today's sessions should be marked missed
+        const todaySessions = replanResult.newSessions.filter(s => s.date === TODAY);
+        assert(todaySessions.every(s => s.status === 'missed'), 'Today sessions should be marked missed');
+
+        // Total planned hours tomorrow onwards should still cover the full topic
+        const tomorrowOnwards = replanResult.newSessions.filter(s => s.date > TODAY && s.status === 'planned');
+        const totalFuture = tomorrowOnwards.reduce((acc, s) => acc + s.plannedHours, 0);
+        assert(totalFuture >= 4.5, `Future sessions must account for the missed hours (found ${totalFuture}h)`);
+      });
+
+      await runTest('Replanning Engine', '"I only did X hours" correctly records partial and replans remainder', () => {
+        const subjects = [{
+          id: 's1',
+          name: 'Literature',
+          examDate: addDays(TODAY, 5),
+          topics: [
+            { id: 't1', name: 'Shakespeare', difficulty: 3, estimatedHours: 6, hoursDone: 0 }
+          ]
+        }];
+        const settings = { dailyHours: 3, studyDays: [0, 1, 2, 3, 4, 5, 6] };
+        const initialSessions = generatePlan({ subjects, settings, startDate: TODAY });
+
+        const replanResult = replan({
+          fromDate: TODAY,
+          subjects,
+          settings,
+          existingSessions: initialSessions,
+          completedHoursToday: 1.0
+        });
+
+        const todayLogged = replanResult.newSessions.filter(s => s.date === TODAY);
+        const totalDoneToday = todayLogged.reduce((acc, s) => acc + (s.doneHours || 0), 0);
+        assertEqual(totalDoneToday, 1.0, 'Today logged hours should equal 1.0h');
+      });
+
+      // Suite 4: Workload Warning & Readiness
+      await runTest('Workload Warning', 'Detects unfeasible workloads and calculates extra hours needed', () => {
+        const subjects = [{
+          id: 's1',
+          name: 'Massive Subject',
+          examDate: addDays(TODAY, 3), // 3 days
+          topics: [
+            { id: 't1', name: 'Giant Topic', difficulty: 5, estimatedHours: 20, hoursDone: 0 }
+          ]
+        }];
+        const settings = { dailyHours: 2, studyDays: [0, 1, 2, 3, 4, 5, 6] }; // 2h * 3 days = 6h capacity < 20h needed!
+        const warning = calculateWorkloadWarning({ subjects, settings, startDate: TODAY });
+
+        assert(warning.hasWarning, 'Should flag workload warning');
+        assert(warning.shortfallHours > 10, 'Shortfall should exceed 10 hours');
+        assert(warning.extraHoursPerDayNeeded > 3, 'Extra hours/day should be calculated');
+      });
+
+      await runTest('Readiness Calculation', 'calculateSubjectReadiness weights by difficulty', () => {
+        const subject = {
+          topics: [
+            { difficulty: 1, estimatedHours: 2, hoursDone: 2 }, // 2 * 1 = 2 done / 2
+            { difficulty: 5, estimatedHours: 2, hoursDone: 0 }  // 0 * 5 = 0 done / 10
+          ]
+        };
+        // Total weighted: 2 + 10 = 12. Done weighted: 2. Readiness = 2/12 = 16.6% -> ~17%
+        const readiness = calculateSubjectReadiness(subject);
+        assertEqual(readiness, 17, 'Readiness should properly weight difficulty 5 vs 1');
+      });
+
+      // Suite 5: Edge Cases
+      await runTest('Edge Cases', 'Handles empty subjects, zero hours, and exam in the past gracefully', () => {
+        assertEqual(generatePlan({ subjects: [], settings: {}, startDate: TODAY }).length, 0, 'Empty subjects returns empty array');
+
+        const pastSubject = [{
+          id: 's_past',
+          name: 'Old Exam',
+          examDate: addDays(TODAY, -2),
+          topics: [{ id: 't1', name: 'Ancient', difficulty: 3, estimatedHours: 4, hoursDone: 0 }]
+        }];
+        const pastPlan = generatePlan({ subjects: pastSubject, settings: { dailyHours: 3 }, startDate: TODAY });
+        assertEqual(pastPlan.length, 0, 'Exam in past should generate 0 sessions');
+
+        const zeroTopicSubject = [{
+          id: 's_zero',
+          name: 'Empty',
+          examDate: addDays(TODAY, 5),
+          topics: []
+        }];
+        const zeroPlan = generatePlan({ subjects: zeroTopicSubject, settings: { dailyHours: 3 }, startDate: TODAY });
+        assertEqual(zeroPlan.length, 0, 'Subject with 0 topics generates 0 sessions');
+      });
+
+      renderResults();
+    }
+
+    function renderResults() {
+      const resultsContainer = document.getElementById('results');
+      const statsContainer = document.getElementById('stats');
+
+      const suites = {};
+      let totalPassed = 0;
+      let totalFailed = 0;
+
+      for (const res of testResults) {
+        if (!suites[res.suite]) suites[res.suite] = [];
+        suites[res.suite].push(res);
+        if (res.passed) totalPassed++;
+        else totalFailed++;
+      }
+
+      statsContainer.innerHTML = `
+        <span class="badge ${totalFailed === 0 ? 'badge-pass' : 'badge-fail'}">
+          ${totalFailed === 0 ? 'ALL TESTS PASSED' : `${totalFailed} TESTS FAILED`}
+        </span>
+        <span>Total: <strong>${testResults.length}</strong></span>
+        <span style="color: var(--pass);">Passed: <strong>${totalPassed}</strong></span>
+        ${totalFailed > 0 ? `<span style="color: var(--fail);">Failed: <strong>${totalFailed}</strong></span>` : ''}
+      `;
+
+      resultsContainer.innerHTML = '';
+
+      for (const [suiteName, tests] of Object.entries(suites)) {
+        const suiteEl = document.createElement('div');
+        suiteEl.className = 'test-suite';
+
+        const header = document.createElement('div');
+        header.className = 'suite-header';
+        header.textContent = suiteName;
+        suiteEl.appendChild(header);
+
+        for (const t of tests) {
+          const item = document.createElement('div');
+          item.className = 'test-item';
+          item.innerHTML = `
+            <span class="test-status ${t.passed ? 'pass' : 'fail'}">${t.passed ? 'PASS' : 'FAIL'}</span>
+            <div class="test-details">
+              <div>${t.name}</div>
+              ${t.error ? `<div class="test-error">${t.error}</div>` : ''}
+            </div>
+          `;
+          suiteEl.appendChild(item);
+        }
+
+        resultsContainer.appendChild(suiteEl);
+      }
+    }
+
+    executeAllTests();
+  </script>
+</body>
+</html>

@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Catchup - Adaptive Study Planner</title>
+  <meta name="description" content="Catchup automatically re-plans your study schedule the moment you miss a day, keeping your exam prep on track.">
+  <link rel="stylesheet" href="styles.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⚡</text></svg>">
+</head>
+<body>
+  <div class="app-container">
+    <!-- Navigation Bar -->
+    <header class="navbar" role="banner">
+      <div class="brand">
+        <div class="brand-icon">⚡</div>
+        <div>
+          <span class="brand-title">Catchup</span>
+          <span class="brand-badge">Adaptive Planner</span>
+        </div>
+      </div>
+
+      <!-- Tab Buttons -->
+      <nav class="tab-nav" role="tablist" aria-label="Main Navigation">
+        <button class="tab-btn" data-tab="setup" role="tab" id="tab-nav-setup" aria-selected="false">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"/></svg>
+          Setup
+        </button>
+        <button class="tab-btn active" data-tab="today" role="tab" id="tab-nav-today" aria-selected="true">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+          Today
+        </button>
+        <button class="tab-btn" data-tab="plan" role="tab" id="tab-nav-plan" aria-selected="false">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/></svg>
+          Plan
+        </button>
+        <button class="tab-btn" data-tab="progress" role="tab" id="tab-nav-progress" aria-selected="false">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+          Progress
+        </button>
+      </nav>
+
+      <!-- Utility Actions -->
+      <div class="nav-controls">
+        <button class="btn btn-secondary btn-sm btn-load-demo" title="Load sample study data">
+          ⚡ Demo Data
+        </button>
+        <button class="btn-icon" id="theme-toggle-btn" aria-label="Toggle Theme" title="Toggle dark/light theme">
+          <span id="theme-icon">🌙</span>
+        </button>
+        <a href="tests.html" class="btn-icon" aria-label="Run Unit Tests" title="Run Planner Unit Tests">
+          <span>🧪</span>
+        </a>
+      </div>
+    </header>
+
+    <!-- Workload Warning Alert Banner (Visible when hours exceed capacity) -->
+    <div id="workload-warning-banner" class="warning-banner" style="display: none;" role="alert">
+      <div class="warning-content">
+        <div class="warning-icon">⚠️</div>
+        <div class="warning-text">
+          <!-- Dynamic Content -->
+        </div>
+      </div>
+      <button class="btn btn-warning btn-sm" onclick="document.getElementById('tab-nav-setup').click()">Adjust Hours</button>
+    </div>
+
+    <!-- MAIN SCREENS CONTAINER -->
+    <main>
+      <!-- SCREEN 1: SETUP -->
+      <section id="tab-setup" class="tab-content" role="tabpanel" aria-labelledby="tab-nav-setup">
+        <div class="screen-header">
+          <div>
+            <h2 class="screen-title">Study Setup & Curriculum</h2>
+            <p class="screen-subtitle">Define your subjects, difficulty levels, exam deadlines, and daily study capacity.</p>
+          </div>
+          <div style="display: flex; gap: 0.5rem;">
+            <button class="btn btn-primary" id="btn-add-subject">+ Add Subject</button>
+            <button class="btn btn-secondary btn-load-demo">⚡ Load Demo</button>
+          </div>
+        </div>
+
+        <div class="setup-grid">
+          <!-- Left: General Schedule Settings -->
+          <div class="setup-card">
+            <h3>⚙️ Study Settings</h3>
+            
+            <div class="form-group">
+              <label class="form-label" for="setting-daily-hours">Daily Available Hours</label>
+              <input type="number" id="setting-daily-hours" class="form-control" min="0.5" max="16" step="0.5" value="3">
+              <small style="color:var(--text-muted);font-size:0.75rem;">Catchup will allocate up to this many hours each study day.</small>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Active Study Days</label>
+              <div class="days-selector">
+                <label class="day-checkbox-label" data-day="1"><span>M</span></label>
+                <label class="day-checkbox-label" data-day="2"><span>T</span></label>
+                <label class="day-checkbox-label" data-day="3"><span>W</span></label>
+                <label class="day-checkbox-label" data-day="4"><span>T</span></label>
+                <label class="day-checkbox-label" data-day="5"><span>F</span></label>
+                <label class="day-checkbox-label" data-day="6"><span>S</span></label>
+                <label class="day-checkbox-label" data-day="0"><span>S</span></label>
+              </div>
+              <small style="color:var(--text-muted);font-size:0.75rem;margin-top:0.4rem;display:block;">Days toggled OFF are protected as rest days.</small>
+            </div>
+
+            <div style="margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid var(--border-subtle);">
+              <h4 style="font-size: 0.9rem; margin-bottom: 0.5rem;">💡 How Adaptive Planning Works</h4>
+              <p style="font-size: 0.8rem; color: var(--text-secondary); line-height: 1.4;">
+                Topics are prioritised using: <br>
+                <code>Weight = Difficulty × Hours × Urgency</code><br>
+                Closer exams get an exponential boost. Subjects are interleaved across days to maximize cognitive retention.
+              </p>
+            </div>
+          </div>
+
+          <!-- Right: Subject Cards & Topic Tree -->
+          <div>
+            <div id="subjects-list-container" class="subjects-container">
+              <!-- Dynamically populated -->
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- SCREEN 2: TODAY -->
+      <section id="tab-today" class="tab-content active" role="tabpanel" aria-labelledby="tab-nav-today">
+        <div class="today-layout">
+          <!-- Left Column: Today's Tasks & Catchup Actions -->
+          <div>
+            <div class="screen-header" style="margin-bottom: 1rem;">
+              <div>
+                <h2 class="screen-title">Today's Focus</h2>
+                <p class="screen-subtitle" id="today-date-display"></p>
+              </div>
+            </div>
+
+            <!-- Quick Catchup Actions Bar -->
+            <div class="today-actions-bar">
+              <span style="font-size: 0.88rem; font-weight: 600; color: var(--text-secondary);">Fell behind or plans changed?</span>
+              <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                <button class="btn btn-warning btn-sm" id="btn-missed-today">⚡ I missed today</button>
+                <button class="btn btn-secondary btn-sm" id="btn-partial-hours">⏱️ I only did ___ hours</button>
+              </div>
+            </div>
+
+            <!-- Today's Sessions List -->
+            <div id="today-sessions-container" class="today-sessions-list">
+              <!-- Dynamically populated -->
+            </div>
+          </div>
+
+          <!-- Right Column: Built-in Pomodoro Focus Timer -->
+          <div>
+            <div class="pomodoro-card">
+              <div class="pomodoro-modes">
+                <button class="pomo-mode-btn active" id="pomo-mode-work">Focus (25m)</button>
+                <button class="pomo-mode-btn" id="pomo-mode-break">Break (5m)</button>
+              </div>
+
+              <div class="timer-circle-wrap">
+                <svg class="timer-svg" viewBox="0 0 200 200">
+                  <circle class="timer-svg-bg" cx="100" cy="100" r="90"></circle>
+                  <circle class="timer-svg-progress" id="pomo-progress-circle" cx="100" cy="100" r="90"></circle>
+                </svg>
+                <div class="timer-center-content">
+                  <div class="timer-time-display" id="pomo-time-display">25:00</div>
+                  <div class="timer-label-display">Focus Block</div>
+                </div>
+              </div>
+
+              <div class="timer-controls-row">
+                <button class="btn btn-primary" id="pomo-start-btn" style="min-width: 120px;">Start Focus</button>
+                <button class="btn btn-secondary" id="pomo-reset-btn">Reset</button>
+              </div>
+              <p style="margin-top: 1rem; font-size: 0.75rem; color: var(--text-muted);">
+                Soft audio chime sounds when timer ends • [Space] to Start/Pause
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- SCREEN 3: PLAN -->
+      <section id="tab-plan" class="tab-content" role="tabpanel" aria-labelledby="tab-nav-plan">
+        <div class="screen-header">
+          <div>
+            <h2 class="screen-title">Adaptive Timeline</h2>
+            <p class="screen-subtitle">Your interleaved schedule over the next 14 days. Sessions automatically redistribute when life happens.</p>
+          </div>
+        </div>
+
+        <div id="plan-calendar-grid" class="plan-calendar-grid">
+          <!-- Dynamically populated day columns -->
+        </div>
+      </section>
+
+      <!-- SCREEN 4: PROGRESS -->
+      <section id="tab-progress" class="tab-content" role="tabpanel" aria-labelledby="tab-nav-progress">
+        <div class="screen-header">
+          <div>
+            <h2 class="screen-title">Exam Readiness & Consistency</h2>
+            <p class="screen-subtitle">Track difficulty-weighted mastery, countdowns, and historical study cadence.</p>
+          </div>
+          <div>
+            <div style="font-size: 0.8rem; text-transform: uppercase; color: var(--text-muted); font-weight: 700;">Overall Mastery</div>
+            <div style="font-size: 1.8rem; font-weight: 800; font-family: var(--font-display); color: var(--accent-emerald);" id="overall-readiness-val">0%</div>
+          </div>
+        </div>
+
+        <div class="progress-grid">
+          <!-- Subject Readiness Scores -->
+          <div class="progress-card">
+            <h3 style="margin-bottom: 1rem;">🎯 Subject Readiness</h3>
+            <p style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 1.25rem;">
+              Calculated as: <code>∑ (HoursDone × Difficulty) / ∑ (TotalHours × Difficulty)</code>
+            </p>
+            <div id="readiness-scores-container">
+              <!-- Dynamically populated -->
+            </div>
+          </div>
+
+          <!-- Exam Countdowns -->
+          <div class="progress-card">
+            <h3 style="margin-bottom: 1rem;">⏳ Upcoming Exam Countdowns</h3>
+            <div id="exam-countdown-container" class="countdown-cards-list">
+              <!-- Dynamically populated -->
+            </div>
+          </div>
+
+          <!-- GitHub-style Study Heatmap -->
+          <div class="heatmap-container-card">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+              <div>
+                <h3 style="font-size: 1.15rem;">🔥 Study Consistency Heatmap</h3>
+                <p style="font-size: 0.8rem; color: var(--text-secondary);">Hours completed across the last 12 weeks</p>
+              </div>
+            </div>
+
+            <div class="heatmap-scroll-wrapper">
+              <div id="study-heatmap-grid" class="heatmap-grid">
+                <!-- 7 rows x 12 cols dynamically rendered -->
+              </div>
+            </div>
+
+            <div class="heatmap-legend">
+              <span>Less</span>
+              <div class="legend-square heatmap-cell" data-level="0"></div>
+              <div class="legend-square heatmap-cell" data-level="1"></div>
+              <div class="legend-square heatmap-cell" data-level="2"></div>
+              <div class="legend-square heatmap-cell" data-level="3"></div>
+              <div class="legend-square heatmap-cell" data-level="4"></div>
+              <span>More (3.5h+)</span>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- FOOTER -->
+    <footer class="app-footer">
+      <div>Catchup • Adaptive Study Planner • Built with Vanilla JS &amp; CSS</div>
+      <div>
+        <a href="tests.html" style="margin-right: 1rem;">🧪 Planner Unit Tests</a>
+        <span>Keyboard shortcuts: [1-4] switch tabs, [Space] start timer</span>
+      </div>
+    </footer>
+  </div>
+
+  <!-- ==========================================
+       MODALS
+       ========================================== -->
+
+  <!-- Modal: Add Subject -->
+  <div class="modal-overlay" id="subject-modal" role="dialog" aria-modal="true" aria-labelledby="modal-subject-title">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h3 id="modal-subject-title">Add New Subject</h3>
+        <button class="btn-icon modal-close-btn" aria-label="Close modal">✕</button>
+      </div>
+      <form id="subject-form">
+        <div class="form-group">
+          <label class="form-label" for="subject-name">Subject Name</label>
+          <input type="text" id="subject-name" class="form-control" placeholder="e.g. Distributed Systems" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="subject-color">Accent Color</label>
+          <input type="color" id="subject-color" class="form-control" value="#6366f1" style="height: 42px; padding: 4px; cursor: pointer;">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="subject-exam-date">Exam Date</label>
+          <input type="date" id="subject-exam-date" class="form-control" required>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary modal-close-btn">Cancel</button>
+          <button type="submit" class="btn btn-primary">Create Subject</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: Add Topic -->
+  <div class="modal-overlay" id="topic-modal" role="dialog" aria-modal="true" aria-labelledby="modal-topic-title">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h3 id="modal-topic-title">Add New Topic</h3>
+        <button class="btn-icon modal-close-btn" aria-label="Close modal">✕</button>
+      </div>
+      <form id="topic-form">
+        <div class="form-group">
+          <label class="form-label" for="topic-name">Topic Name</label>
+          <input type="text" id="topic-name" class="form-control" placeholder="e.g. Raft Consensus Algorithm" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="topic-difficulty">Difficulty (1 = Easy, 5 = Hard)</label>
+          <select id="topic-difficulty" class="form-control">
+            <option value="1">1 - Easy (Quick revision)</option>
+            <option value="2">2 - Moderate</option>
+            <option value="3" selected>3 - Standard Difficulty</option>
+            <option value="4">4 - Challenging</option>
+            <option value="5">5 - Hard (Deep concepts)</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="topic-hours">Estimated Hours Needed</label>
+          <input type="number" id="topic-hours" class="form-control" min="0.5" max="40" step="0.5" value="3" required>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary modal-close-btn">Cancel</button>
+          <button type="submit" class="btn btn-primary">Add Topic</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: Partial Hours ("I only did ___ hours") -->
+  <div class="modal-overlay" id="partial-hours-modal" role="dialog" aria-modal="true" aria-labelledby="modal-partial-title">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h3 id="modal-partial-title">Log Today's Actual Study Hours</h3>
+        <button class="btn-icon modal-close-btn" aria-label="Close modal">✕</button>
+      </div>
+      <div>
+        <p style="font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 1.25rem;">
+          Didn't hit your target today? No guilt! Enter how many hours you actually studied, and Catchup will intelligently adapt the remaining workload across upcoming days.
+        </p>
+        <div class="form-group">
+          <label class="form-label" for="partial-hours-input">Hours Completed Today</label>
+          <input type="number" id="partial-hours-input" class="form-control" min="0" max="16" step="0.5" value="1.5">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary modal-close-btn">Cancel</button>
+        <button type="button" class="btn btn-primary" id="btn-confirm-partial">Re-plan Schedule</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div id="toast-container" class="toast-container" aria-live="polite"></div>
+
+  <!-- Application Scripts (Loaded in dependency order to support file:// direct execution) -->
+  <script src="planner.js"></script>
+  <script src="storage.js"></script>
+  <script src="ui.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
