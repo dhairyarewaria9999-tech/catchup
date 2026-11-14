@@ -2,7 +2,11 @@
 
 > **"Study plans fail the moment a student misses a day. Catchup generates a day-by-day plan and automatically re-plans the remaining days when life happens."**
 
-Built for a 24-hour hackathon. 100% vanilla HTML, CSS, and modern JavaScript (ES modules). Zero dependencies, zero build steps, zero backends. Runs directly by double-clicking `index.html` or deploying as-is to Netlify or GitHub Pages.
+🌐 **Live Demo on GitHub Pages**: [https://dhairyarewaria9999-tech.github.io/catchup/](https://dhairyarewaria9999-tech.github.io/catchup/)  
+🧪 **Live Unit Test Suite**: [https://dhairyarewaria9999-tech.github.io/catchup/tests.html](https://dhairyarewaria9999-tech.github.io/catchup/tests.html)  
+📦 **GitHub Repository**: [https://github.com/dhairyarewaria9999-tech/catchup](https://github.com/dhairyarewaria9999-tech/catchup)
+
+Built for a 24-hour hackathon. 100% vanilla HTML, CSS, and modern JavaScript. Zero dependencies, zero build steps, zero backends. Runs directly by opening `index.html` or online via GitHub Pages.
 
 ---
 
